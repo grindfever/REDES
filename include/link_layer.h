@@ -3,6 +3,19 @@
 
 #ifndef _LINK_LAYER_H_
 #define _LINK_LAYER_H_
+#define FLAG 0x7E
+#define ESCAPE 0x7D
+
+#define SET  0x03   
+#define UA   0x07   
+#define A_TR 0x03 //TRANSMISSOR TO RECEIVER 
+#define A_RT 0x01 //RECEIVER TO TRANSMISSOR  
+
+#define RR0  0xAA
+#define RR1  0xAB 
+#define REJ0 0x54 
+#define REJ1 0x55
+#define DISC 0x0B
 
 typedef enum
 {

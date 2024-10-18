@@ -12,10 +12,10 @@
 
 
 // Arguments:
-//   $1: /dev/ttySxx
+//   $1: /dev/ttySxx SERIAL PORT
 //   $2: baud rate
-//   $3: tx | rx
-//   $4: filename
+//   $3: tx | rx     tx=transmissor rx=receiver
+//   $4: filename     
 int main(int argc, char *argv[])
 {
     if (argc < 5) {
