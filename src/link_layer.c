@@ -160,26 +160,95 @@ int llopen(LinkLayer connectionParameters){
 //buf: array of characters to transmit
 //bufSize: length of the characters array
 //return number of writen characters,-1 if error
-int llwrite(const unsigned char *buf, int bufSize)
+int llwrite(int fd, const unsigned char *buf, int bufSize)
 {   
     // TODO
-    int frameSize = 6 + bufSize; //+6 for the FLAG|A|C|BCC1|...|BCC2|FLAG BYTES 
-    unsigned char *frame = (unsigned char *) malloc(frameSize);
+    int frameSize = 6 + bufSize; //+6 for the FLAG|A|C|BCC1|(D1-DN)|BCC2|FLAG BYTES 
+    unsigned char *frame = (unsigned char *) malloc(frameSize);//dynamic because of variable DATA and Byte stuffing
     frame[0]=FLAG;
     frame[1]=A_TR;
     frame[2]=C_N(transferT);
     frame[3]=A_TR^C_N(transferT);
     for (int i = 0; i < bufSize; i++) {
-        frame[4 + i] = buf[i];
+        frame[4 + i] = buf[i];   //D1 to DN
     }
+
     unsigned char bcc2 = buf[0];
-    for (unsigned int i = 1; i < bufSize; i++) {
-        bcc2 ^= buf[i];  // XOR each byte in the payload to get BCC2
+    for (int i = 1; i < bufSize; i++) {
+        bcc2 ^= buf[i];  // BCC2=D1^D2^D3.....^DN
     }
-    frame[4+bufSize]=bcc2;
-    frame[5+bufSize]=FLAG;
-    
-    return 0;
+    //byte stuffing 
+    //if FLAG is found on buf replace with ESCAPE then FLAG^0X20
+    //if ESCAPE is found on buf replace with ESCAPE then ESCAPE^0X20
+    int stuffedi = 4;
+
+    for (int i = 0; i < bufSize; i++) {
+        if (buf[i] == FLAG || buf[i] == ESCAPE) {
+            frame = realloc(frame, ++frameSize); 
+            frame[stuffedi++] = ESCAPE;         
+            frame[stuffedi++] = buf[i] ^ 0x20; 
+        } else {
+        frame[stuffedi++] = buf[i];
+        }
+    }
+    frame[stuffedi++] = bcc2;
+    frame[stuffedi++] = FLAG;
+
+    int rr;
+    int rej;
+    int transmission=0;
+    LinkLayerState linkstate = START;
+    unsigned char byte,byteRet;
+    //each transmission writes frame to receiver and reads the acknowledgment from the receiver
+    while(transmission<retransmissions){
+        rr= 0;
+        rej = 0;
+        alarmTriggered = FALSE;
+        alarm(timeout);
+        while (alarmTriggered == FALSE && !rr && !rej) {
+            write(fd,frame,stuffedi);
+            if (read(fd, &byte, 1)){ 
+                switch(linkstate){
+                    case START:
+                        if(byte==FLAG)linkstate=FLAG_OK;
+                        break;
+                    case FLAG_OK:
+                        if(byte==A_RT)linkstate=A_OK;
+                        else if(byte==FLAG)linkstate=FLAG_OK;
+                        else linkstate=START;
+                        break;
+                    case A_OK:
+                        if(byte==SET||byte==UA||byte==RR(0)||byte==RR(1)||byte==REJ(0)||byte==REJ(1)||byte==DISC){
+                            linkstate=C_OK;
+                            byteRet=byte;
+                        }
+                        else if(byte==FLAG)linkstate=FLAG_OK;
+                        else linkstate=START;
+                        break;
+                    case C_OK:
+                        if(byte==A_RT^byteRet)linkstate=BCC1_OK;
+                        else if(byte==FLAG)linkstate=FLAG_OK;
+                        else linkstate=START;
+                        break;
+                    case BCC1_OK:
+                        if(byte==FLAG)linkstate=STOP_READ;
+                        else linkstate=START;
+                        break;          
+                    default:
+                        break;
+                }
+            }
+            if(byteRet==RR(0)||byteRet==RR(1)){
+                rr=TRUE;
+                transferT=(transferT+1)%2;
+                }
+            if(byteRet==REJ(0)||byteRet==REJ(1)) rej=TRUE;
+        }
+        transmission++;
+    }    
+    free(frame);
+    if (rr)return frameSize;
+    else return -1;
 }
 
 ////////////////////////////////////////////////
