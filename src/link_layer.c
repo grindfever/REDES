@@ -11,6 +11,8 @@ int timeout = 0;
 int retransmissions = 0;
 int alarmTriggered = FALSE;
 int alarmCount = 0;
+int transferT=0;
+int transferR=1;
 ////////////////////////////////////////////////
 // LLOPEN
 ////////////////////////////////////////////////
@@ -51,6 +53,8 @@ int llopen(LinkLayer connectionParameters){
         perror("tcsetattr");
         return -1;
     }
+    //opened serialport for connection 
+    //now we will send SET as the Transmiter and wait for UA from receiver and we will check this SET as the Receiver and send to the transmitter the UA
 
     LinkLayerState linkstate=START;
     timeout = connectionParameters.timeout;
@@ -152,17 +156,37 @@ int llopen(LinkLayer connectionParameters){
 
 ////////////////////////////////////////////////
 // LLWRITE
-////////////////////////////////////////////////
+////////////////////////////////////////////////~
+//buf: array of characters to transmit
+//bufSize: length of the characters array
+//return number of writen characters,-1 if error
 int llwrite(const unsigned char *buf, int bufSize)
-{
+{   
     // TODO
-
+    int frameSize = 6 + bufSize; //+6 for the FLAG|A|C|BCC1|...|BCC2|FLAG BYTES 
+    unsigned char *frame = (unsigned char *) malloc(frameSize);
+    frame[0]=FLAG;
+    frame[1]=A_TR;
+    frame[2]=C_N(transferT);
+    frame[3]=A_TR^C_N(transferT);
+    for (int i = 0; i < bufSize; i++) {
+        frame[4 + i] = buf[i];
+    }
+    unsigned char bcc2 = buf[0];
+    for (unsigned int i = 1; i < bufSize; i++) {
+        bcc2 ^= buf[i];  // XOR each byte in the payload to get BCC2
+    }
+    frame[4+bufSize]=bcc2;
+    frame[5+bufSize]=FLAG;
+    
     return 0;
 }
 
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
+//packet: array of characters read
+//return array length/number of characters read), -1 if error
 int llread(unsigned char *packet)
 {
     // TODO
