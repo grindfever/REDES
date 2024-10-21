@@ -78,12 +78,11 @@ int llread(unsigned char *packet);
 // if showStatistics == TRUE, link layer should print statistics in the console on close.
 // Return "1" on success or "-1" on error.
 int llclose(int showStatistics);
-//Opens connection with serialport
-//Returns 1=success -1=error
-int connection(const char *serialPort);
+
 //Sends supervision/unumbered frame to serial port fd 
 //Frame format: |FLAG|A|C|BCC1|FLAG|
 int sendSUFrame(int fd, unsigned char A, unsigned char C);
+
 // Counts timeouts
 void alarmHandler(int signal);
 

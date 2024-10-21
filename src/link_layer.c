@@ -18,14 +18,45 @@ int llopen(LinkLayer connectionParameters){
 
     if (openSerialPort(connectionParameters.serialPort,connectionParameters.baudRate) < 0)return -1;
     // TODO
+    int fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
+    if (fd < 0) {
+        perror(connectionParameters.serialPort);
+        return -1; 
+    }
+
+    struct termios oldtio;
+    struct termios newtio;
+
+    if (tcgetattr(fd, &oldtio) == -1)
+    {
+        perror("tcgetattr");
+        exit(-1);
+    }
+
+    memset(&newtio, 0, sizeof(newtio));
+
+    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+    newtio.c_iflag = IGNPAR;
+    newtio.c_oflag = 0;
+    // Set input mode (non-canonical, no echo,...)
+    newtio.c_lflag = 0;
+    newtio.c_cc[VTIME] = 0; // Inter-character timer unused
+    newtio.c_cc[VMIN] = 5;  // Blocking read until 5 chars received
+    // VTIME e VMIN should be changed in order to protect with a
+    // timeout the reception of the following character(s)
+
+    tcflush(fd, TCIOFLUSH);
+
+    if (tcsetattr(fd, TCSANOW, &newtio) == -1) {
+        perror("tcsetattr");
+        return -1;
+    }
+
     LinkLayerState linkstate=START;
     timeout = connectionParameters.timeout;
     retransmissions = connectionParameters.nRetransmissions;
     unsigned char byte;
-
-    int fd = connection(connectionParameters.serialPort);
-    if (fd < 0) return -1;
-
+    
     switch (connectionParameters.role) {
 
         case LlTx: {
