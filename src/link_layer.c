@@ -164,7 +164,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
 {   
     // TODO
     int frameSize = 6 + bufSize; //+6 for the FLAG|A|C|BCC1|(D1-DN)|BCC2|FLAG BYTES 
-    unsigned char *frame = (unsigned char *) malloc(frameSize);//dynamic because of variable DATA and Byte stuffing
+    unsigned char *frame = (unsigned char *) malloc(frameSize);//dynamic because of variable bufSize and Byte stuffing
     frame[0]=FLAG;
     frame[1]=A_TR;
     frame[2]=C_N(transferT);
@@ -344,10 +344,64 @@ int llread(int fd,unsigned char *packet)
 ////////////////////////////////////////////////
 // LLCLOSE
 ////////////////////////////////////////////////
-int llclose(int showStatistics)
+//if showStatistics=true print statistics {NUMBER OF TIMEOUTS,FRAMES,RETRANSMISSIONS}
+//Positive value in case of success
+//Negative value in case of error
+int llclose(int fd,int showStatistics)
 {
     // TODO
-
+    LinkLayerState linkstate=START;
+    unsigned char byte;
+    int transmission=0;
+   
+    (void) signal(SIGALRM, alarmHandler);
+    while(transmission<retransmissions && linkstate!=STOP_READ){
+        sendSUFrame(fd,A_TR,DISC);
+        alarm(timeout);
+        alarmTriggered=FALSE;
+        
+        while(alarmTriggered==FALSE && linkstate!=STOP_READ){
+            if(read(fd,&byte,1)){
+                switch(linkstate){
+                    case START:
+                        if(byte==FLAG)linkstate=FLAG_OK;
+                        break;
+                    case FLAG_OK:
+                        if(byte==A_RT)linkstate=A_OK;
+                        else if(byte==FLAG)linkstate=FLAG_OK;
+                        else linkstate=START;
+                        break;
+                    case A_OK:
+                        if(byte==DISC)linkstate=C_OK;
+                        else if(byte==FLAG)linkstate=FLAG_OK;
+                        else linkstate=START;
+                        break;
+                    case C_OK:
+                        if(byte==A_RT^DISC)linkstate=BCC1_OK;
+                        else if(byte==FLAG)linkstate=FLAG_OK;
+                        else linkstate=START;
+                        break;
+                    case BCC1_OK:
+                        if(byte==FLAG)linkstate=STOP_READ;
+                        else linkstate=START;
+                        break;
+                    default:
+                        printf("\n ERROR ON LLCLOSE ENTERED DEFAULT");
+                        return -1;
+                        break;                    
+                }
+            }
+        }
+        transmission++;
+    }
+    sendSUFrame(fd, A_TR, UA);
+    if (linkstate != STOP_READ){
+        printf("EXHAUSTED ALL RETRANSMISSIONS");
+        return -1;
+    }else if(showStatistics){
+        printf("\n Number of Retransmissions: %d",transmission);
+        printf("\n Number of timeouts : %d",alarmCount);
+    }
     int clstat = closeSerialPort();
     return clstat;
 }
