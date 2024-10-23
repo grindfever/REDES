@@ -104,7 +104,7 @@ int llopen(LinkLayer connectionParameters){
                  connectionParameters.nRetransmissions--;    
             }
             if(linkstate!=STOP_READ)return -1;
-            printf("DEBUG:RECEIVED UA");
+            printf("\n DEBUG:RECEIVED UA");
             break;
            
         }
@@ -142,7 +142,7 @@ int llopen(LinkLayer connectionParameters){
                 }
             }
             sendSUFrame(fd,A_RT,UA);
-            printf("DEBUG:SENT UA");
+            printf("\n DEBUG:SENT UA");
             break;
         }
         default:{
@@ -199,8 +199,9 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     int transmission=0;
     LinkLayerState linkstate = START;
     unsigned char byte,byteRet;
-    //each transmission writes frame to receiver and reads the acknowledgment from the receiver
-    while(transmission<retransmissions){
+    //each transmission writes frame to receiver and reads the acknowledgment(rr or rej) from the receiver
+    //we are looking for an rr, if not we need to exhaust all retransmissions and return -1
+    while(transmission<retransmissions && !rr){
         rr= 0;
         rej = 0;
         alarmTriggered = FALSE;
@@ -235,12 +236,13 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                         else linkstate=START;
                         break;          
                     default:
+                        printf("ERROR ON LLWRITE ENTERED DEFAULT");
                         break;
                 }
             }
             if(byteRet==RR(0)||byteRet==RR(1)){
-                rr=TRUE;
                 transferT=(transferT+1)%2;
+                rr=TRUE;
                 }
             if(byteRet==REJ(0)||byteRet==REJ(1)) rej=TRUE;
         }
@@ -256,11 +258,87 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
 ////////////////////////////////////////////////
 //packet: array of characters read
 //return array length/number of characters read), -1 if error
-int llread(unsigned char *packet)
+int llread(int fd,unsigned char *packet)
 {
     // TODO
-
-    return 0;
+    unsigned char byte,cbyte;
+    unsigned char read_bcc2,bcc2;
+    int i=0;
+    LinkLayerState linkstate=START;
+    
+    while(linkstate!=STOP_READ){
+        if (read(fd,&byte,1)){
+            switch(linkstate){
+                case START:
+                    if(byte==FLAG)linkstate=FLAG_OK;
+                    break;
+                case FLAG_OK:
+                    if(byte==A_TR)linkstate=A_OK;    
+                    else linkstate=START;
+                    break;
+                case A_OK:
+                    if(byte==C_N(0)||byte==C_N(1)){
+                        linkstate=C_OK;
+                        cbyte=byte;
+                        }
+                    else if(byte==FLAG)linkstate=FLAG_OK;
+                    else if(byte==DISC){
+                        sendSUFrame(fd,A_RT,DISC);
+                        return 0;
+                        }
+                    else linkstate=START;
+                    break;    
+                case C_OK:
+                    if (byte==A_TR^cbyte)linkstate=READ_DATA;
+                    else if(byte==FLAG)linkstate=FLAG_OK;
+                    else linkstate=START;
+                    break;   
+                case READ_DATA:
+                    if(byte==ESCAPE){
+                        if(read(fd,&byte,1)){
+                            if(byte==ESCAPE^0X20||byte==FLAG^0x20){
+                                packet[i++]=byte^0x20;//removing the xor to get original byte
+                            } 
+                            else {
+                                printf("\n Retransmission:READ AFTER ESCAPE ERROR");
+                                return -1;
+                            }
+                        }
+                    }
+                    else if(byte==FLAG){ //end of DATA field ->calculate bcc2->compare bcc2
+                        //removing bcc2 from packet
+                        read_bcc2=packet[i-1];
+                        i--;
+                        packet[i]='\0';
+                        //calculate bcc2 with data in packet to compare with read_bcc2
+                        bcc2=packet[0];
+                        for(int j=1;j<i;j++){
+                            bcc2^=packet[j];
+                        }
+                        //bcc2 comparison
+                        if(bcc2==read_bcc2){
+                            linkstate=STOP_READ;
+                            sendSUFrame(fd,A_RT,RR(transferR));
+                            transferR=(transferR+1)%2;
+                            return i;
+                        }
+                        else{
+                            printf("\n RETRANSMISSION:(REJ)BCC2 NOT MATCHED");
+                            sendSUFrame(fd,A_RT,REJ(transferR));
+                        }  
+                    }
+                    else{//DATA BYTE
+                        packet[i++]=byte;
+                    }
+                    break;
+                default:
+                    printf("\n ERROR ON LLREAD ENTERED DEFAULT");
+                    return -1;
+                    break;    
+            }
+        }
+    }
+    return -1;
 }
 
 ////////////////////////////////////////////////
@@ -273,44 +351,7 @@ int llclose(int showStatistics)
     int clstat = closeSerialPort();
     return clstat;
 }
-int connection(const char *serialPort) {
 
-    int fd = open(serialPort, O_RDWR | O_NOCTTY);
-    if (fd < 0) {
-        perror(serialPort);
-        return -1; 
-    }
-
-    struct termios oldtio;
-    struct termios newtio;
-
-    if (tcgetattr(fd, &oldtio) == -1)
-    {
-        perror("tcgetattr");
-        exit(-1);
-    }
-
-    memset(&newtio, 0, sizeof(newtio));
-
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
-    // Set input mode (non-canonical, no echo,...)
-    newtio.c_lflag = 0;
-    newtio.c_cc[VTIME] = 0; // Inter-character timer unused
-    newtio.c_cc[VMIN] = 5;  // Blocking read until 5 chars received
-    // VTIME e VMIN should be changed in order to protect with a
-    // timeout the reception of the following character(s)
-
-    tcflush(fd, TCIOFLUSH);
-
-    if (tcsetattr(fd, TCSANOW, &newtio) == -1) {
-        perror("tcsetattr");
-        return -1;
-    }
-
-    return fd;
-}
 int sendSUFrame(int fd, unsigned char A, unsigned char C){
     unsigned char frame[5] = {FLAG, A, C, A ^ C, FLAG};
     return write(fd,frame, 5);

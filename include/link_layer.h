@@ -58,6 +58,7 @@ typedef enum{
     A_OK,
     C_OK,
     BCC1_OK,
+    READ_DATA,
     STOP_READ
 }LinkLayerState;
 
@@ -72,7 +73,7 @@ int llwrite(int fd,const unsigned char *buf, int bufSize);
 
 // Receive data in packet.
 // Return number of chars read, or "-1" on error.
-int llread(unsigned char *packet);
+int llread(int fd,unsigned char *packet);
 
 // Close previously opened connection.
 // if showStatistics == TRUE, link layer should print statistics in the console on close.
