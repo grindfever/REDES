@@ -6,7 +6,7 @@
 // MISC
 #define _POSIX_SOURCE 1 // POSIX compliant source
 
-
+int frames_sent=0;
 int timeout = 0;
 int retransmissions = 0;
 int alarmTriggered = FALSE;
@@ -67,6 +67,7 @@ int llopen(LinkLayer connectionParameters){
             (void) signal(SIGALRM, alarmHandler); //when timer of alarm ends calls alarmHandler->alarmCount++
             while(connectionParameters.nRetransmissions!=0 && linkstate!=STOP_READ){
                 sendSUFrame(fd,A_TR,SET);
+                frames_sent++; 
                 alarm(connectionParameters.timeout);
                 alarmTriggered=FALSE;
                 //UA acknowledgment if linkstate reaches STOP_READ if alarm triggers then nRetransmissions--
@@ -142,6 +143,7 @@ int llopen(LinkLayer connectionParameters){
                 }
             }
             sendSUFrame(fd,A_RT,UA);
+            frames_sent++; 
             printf("\n DEBUG:SENT UA");
             break;
         }
@@ -208,6 +210,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
         alarm(timeout);
         while (alarmTriggered == FALSE && !rr && !rej) {
             write(fd,frame,stuffedi);
+            frames_sent++; 
             if (read(fd, &byte, 1)){ 
                 switch(linkstate){
                     case START:
@@ -284,6 +287,7 @@ int llread(int fd,unsigned char *packet)
                     else if(byte==FLAG)linkstate=FLAG_OK;
                     else if(byte==DISC){
                         sendSUFrame(fd,A_RT,DISC);
+                        frames_sent++; 
                         return 0;
                         }
                     else linkstate=START;
@@ -319,12 +323,14 @@ int llread(int fd,unsigned char *packet)
                         if(bcc2==read_bcc2){
                             linkstate=STOP_READ;
                             sendSUFrame(fd,A_RT,RR(transferR));
+                            frames_sent++; 
                             transferR=(transferR+1)%2;
                             return i;
                         }
                         else{
                             printf("\n RETRANSMISSION:(REJ)BCC2 NOT MATCHED");
                             sendSUFrame(fd,A_RT,REJ(transferR));
+                            frames_sent++; 
                         }  
                     }
                     else{//DATA BYTE
@@ -356,10 +362,11 @@ int llclose(int fd,int showStatistics)
    
     (void) signal(SIGALRM, alarmHandler);
     while(transmission<retransmissions && linkstate!=STOP_READ){
-        sendSUFrame(fd,A_TR,DISC);
+        sendSUFrame(fd,A_TR,DISC); //Transmiter sends receiver a DISC frame 
+        frames_sent++; 
         alarm(timeout);
         alarmTriggered=FALSE;
-        
+        //Check if frame is a DISC from the Receiver to the Transmiter(done in llread()to simplify llclose)
         while(alarmTriggered==FALSE && linkstate!=STOP_READ){
             if(read(fd,&byte,1)){
                 switch(linkstate){
@@ -372,7 +379,7 @@ int llclose(int fd,int showStatistics)
                         else linkstate=START;
                         break;
                     case A_OK:
-                        if(byte==DISC)linkstate=C_OK;
+                        if(byte==DISC)linkstate=C_OK;      
                         else if(byte==FLAG)linkstate=FLAG_OK;
                         else linkstate=START;
                         break;
@@ -394,16 +401,21 @@ int llclose(int fd,int showStatistics)
         }
         transmission++;
     }
-    sendSUFrame(fd, A_TR, UA);
+    sendSUFrame(fd, A_TR, UA); // if it was a DISC from Receiver then Transmiter sends UA to Receiver
+    frames_sent++; 
     if (linkstate != STOP_READ){
         printf("EXHAUSTED ALL RETRANSMISSIONS");
         return -1;
     }else if(showStatistics){
-        printf("\n Number of Retransmissions: %d",transmission);
-        printf("\n Number of timeouts : %d",alarmCount);
+        printf("\n Number of Retransmissions : %d",transmission);
+        printf("\n Number of Timeouts : %d",alarmCount);
+        printf("\n Number of Frames Sent : %d",frames_sent);
     }
-    int clstat = closeSerialPort();
-    return clstat;
+    if(closeSerialPort()>-1) return 1;
+    else {
+        printf("ERROR:closeSerialPort returned -1");
+        return -1;
+        }
 }
 
 int sendSUFrame(int fd, unsigned char A, unsigned char C){
