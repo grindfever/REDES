@@ -36,9 +36,9 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             fseek(fd,0,SEEK_END);
             int file_size=ftell(file)-fstart;
             fseek(file,fstart,SEEK_SET);
-
-            unsigned int control_packet_size;
-            unsigned char *controlPacketStart = get_controlPacket(2, filename, file_size, &control_packet_size);
+            //start controlpacket
+            unsigned int control_packet_size;               //c=1->start controlpacket
+            unsigned char *controlPacketStart = get_controlPacket(1, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketStart, control_packet_size) < 0){ 
                 printf("Exit: error in start packet\n");
                 exit(-1);
@@ -63,7 +63,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 
                 int *data_packet_size=4+data_size; //C|S|L1|L2|DATA ->1|1|1|1|DATA_SIZE
                 unsigned char* datapacket = (unsigned char*)malloc(*data_packet_size);
-                datapacket[0] = 1;   
+                datapacket[0] = 2;  //c=2->datapacket
                 datapacket[1] = s;
                 datapacket[2] = data_size >> 8 & 0xFF; //L2=MSB of data_size
                 datapacket[3] = data_size & 0xFF;      //L1=LSB of data_size
@@ -78,7 +78,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 bytes_left -= (int) MAX_PAYLOAD_SIZE; 
                 data+=data_size; //
                 s=(s+1)%99;
-            }
+            }                                           //c=3->end control packet
             unsigned char *controlPacketEnd = getControlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) == -1) { 
                 printf("Exit: error in end packet\n");
@@ -114,9 +114,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 if(packet[0]==3){//Control End packet
                     unsigned long int received_file_size = 0;
                     unsigned char* name = readCPacket(packet, packet_size, &received_file_size); 
-
                     break;
-                }else if(packet[0] == 1){//data packet
+                }else if(packet[0] == 2){//data packet
                     unsigned char *buffer = (unsigned char*)malloc(packet_size);
                     for (unsigned int i = 0; i < packet_size - 4; i++) {
                         buffer[i] = packet[i + 4];
@@ -127,6 +126,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 }
 
             }
+            free(packet);
+            free(name);
             fclose(new_file);
             break;
         }

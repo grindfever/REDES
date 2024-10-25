@@ -310,7 +310,6 @@ int llread(int fd,unsigned char *packet)
                         }
                     }
                     else if(byte==FLAG){ //end of DATA field ->calculate bcc2->compare bcc2
-                        //removing bcc2 from packet
                         read_bcc2=packet[i-1];
                         i--;
                         packet[i]='\0';
@@ -353,6 +352,10 @@ int llread(int fd,unsigned char *packet)
 //if showStatistics=true print statistics {NUMBER OF TIMEOUTS,FRAMES,RETRANSMISSIONS}
 //Positive value in case of success
 //Negative value in case of error
+//T---------R//
+//DISC->     //
+//     <-DISC//
+//UA->       // 
 int llclose(int fd,int showStatistics)
 {
     // TODO
@@ -366,7 +369,8 @@ int llclose(int fd,int showStatistics)
         frames_sent++; 
         alarm(timeout);
         alarmTriggered=FALSE;
-        //Check if frame is a DISC from the Receiver to the Transmiter(done in llread()to simplify llclose)
+        //Check if frame is a DISC from the Receiver to the Transmiter
+        //(in llread(),Receiver sends Transmiter DISC)
         while(alarmTriggered==FALSE && linkstate!=STOP_READ){
             if(read(fd,&byte,1)){
                 switch(linkstate){
@@ -419,7 +423,8 @@ int llclose(int fd,int showStatistics)
 }
 
 int sendSUFrame(int fd, unsigned char A, unsigned char C){
-    unsigned char frame[5] = {FLAG, A, C, A ^ C, FLAG};
+    unsigned char bcc1=A^C;
+    unsigned char frame[5] = {FLAG, A, C, bcc1, FLAG};
     return write(fd,frame, 5);
 }
 void alarmHandler(int signal) {
