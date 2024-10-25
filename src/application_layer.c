@@ -4,15 +4,16 @@
 #include "application_layer.h"
 #include "link_layer.h"
 #include <stdio.h>
+#include <math.h>
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate,int nTries, int timeout, const char *filename){   
     LinkLayer linklayer;
-    if (role=="tx") linklayer.role = LlRx;
+    if (role[0]=='t') linklayer.role = LlRx;
     else linklayer.role = LlTx;
     linklayer.nRetransmissions = nTries;
     linklayer.baudRate = baudRate;
     linklayer.timeout = timeout;
-    stcpy(linklayer.serialPort,serialPort);
+    strcpy(linklayer.serialPort,serialPort);
 
     int fd=llopen(linklayer);
     if (fd < 0) {
@@ -33,7 +34,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             }
             //get file size
             int fstart=ftell(file);
-            fseek(fd,0,SEEK_END);
+            fseek(file,0,SEEK_END);
             int file_size=ftell(file)-fstart;
             fseek(file,fstart,SEEK_SET);
             //start controlpacket
@@ -61,8 +62,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                     packet_data[i] = data[i];
                 }
                 
-                int *data_packet_size=4+data_size; //C|S|L1|L2|DATA ->1|1|1|1|DATA_SIZE
-                unsigned char* datapacket = (unsigned char*)malloc(*data_packet_size);
+                int data_packet_size=4+data_size; //C|S|L1|L2|DATA ->1|1|1|1|DATA_SIZE
+                unsigned char* datapacket = (unsigned char*)malloc(data_packet_size);
                 datapacket[0] = 2;  //c=2->datapacket
                 datapacket[1] = s;
                 datapacket[2] = data_size >> 8 & 0xFF; //L2=MSB of data_size
@@ -79,7 +80,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 data+=data_size; //
                 s=(s+1)%99;
             }                                           //c=3->end control packet
-            unsigned char *controlPacketEnd = getControlPacket(3, filename, file_size, &control_packet_size);
+            unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) == -1) { 
                 printf("Exit: error in end packet\n");
                 exit(-1);
@@ -102,7 +103,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             //control start packet
             //file size
             unsigned int file_size=0;
-            unsigned char* name = parseControlPacket(packet, packet_size, &file_size); 
+            unsigned char* filename = readCPacket(packet, packet_size, &file_size); 
 
             FILE* new_file = fopen((char *) filename, "wb+");//file where we will copy the packets            
             packet_size = -1; 
@@ -112,8 +113,6 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 packet_size = llread(fd, packet);
                 }
                 if(packet[0]==3){//Control End packet
-                    unsigned long int received_file_size = 0;
-                    unsigned char* name = readCPacket(packet, packet_size, &received_file_size); 
                     break;
                 }else if(packet[0] == 2){//data packet
                     unsigned char *buffer = (unsigned char*)malloc(packet_size);
@@ -127,7 +126,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
 
             }
             free(packet);
-            free(name);
+            free(filename);
             fclose(new_file);
             break;
         }

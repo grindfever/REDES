@@ -88,7 +88,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;
                             case C_OK:
-                                if(byte==A_RT^UA)linkstate=BCC1_OK;
+                                if(byte==(A_RT^UA))linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
@@ -128,7 +128,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;
                         case C_OK:
-                            if(byte==A_TR^SET)linkstate=BCC1_OK;
+                            if(byte==(A_TR^SET))linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
@@ -230,7 +230,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                         else linkstate=START;
                         break;
                     case C_OK:
-                        if(byte==A_RT^byteRet)linkstate=BCC1_OK;
+                        if(byte==(A_RT^byteRet))linkstate=BCC1_OK;
                         else if(byte==FLAG)linkstate=FLAG_OK;
                         else linkstate=START;
                         break;
@@ -293,14 +293,14 @@ int llread(int fd,unsigned char *packet)
                     else linkstate=START;
                     break;    
                 case C_OK:
-                    if (byte==A_TR^cbyte)linkstate=READ_DATA;
+                    if (byte==(A_TR^cbyte))linkstate=READ_DATA;
                     else if(byte==FLAG)linkstate=FLAG_OK;
                     else linkstate=START;
                     break;   
                 case READ_DATA:
                     if(byte==ESCAPE){
                         if(read(fd,&byte,1)){
-                            if(byte==ESCAPE^0X20||byte==FLAG^0x20){
+                            if(byte==(ESCAPE^0X20)||byte==(FLAG^0x20)){
                                 packet[i++]=byte^0x20;//removing the xor to get original byte
                             } 
                             else {
@@ -388,7 +388,7 @@ int llclose(int fd,int showStatistics)
                         else linkstate=START;
                         break;
                     case C_OK:
-                        if(byte==A_RT^DISC)linkstate=BCC1_OK;
+                        if(byte==(A_RT^DISC))linkstate=BCC1_OK;
                         else if(byte==FLAG)linkstate=FLAG_OK;
                         else linkstate=START;
                         break;
