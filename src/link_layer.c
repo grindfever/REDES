@@ -179,7 +179,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     for (int i = 1; i < bufSize; i++) {
         bcc2 ^= buf[i];  // BCC2=D1^D2^D3.....^DN
     }
-    //byte stuffing 
+    //DATA field with byte stuffing
     //if FLAG is found on buf replace with ESCAPE then FLAG^0X20
     //if ESCAPE is found on buf replace with ESCAPE then ESCAPE^0X20
     int stuffedi = 4;
