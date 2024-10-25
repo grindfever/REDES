@@ -167,7 +167,7 @@ unsigned char * get_controlPacket(const unsigned int c, const char* file_name, l
 // C|T1|L1|V1|T2|L2|V2
 unsigned char* readCPacket(unsigned char* packet, int size, unsigned int *file_size) {
     // File Size
-    unsigned char k = packet[2]; //k=0xL2L1
+    unsigned char k = packet[2];
     unsigned char l2l1extract[k]; 
     *file_size = 0; 
     for (unsigned int i = 0; i < k; i++) {
