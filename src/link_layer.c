@@ -66,7 +66,7 @@ int llopen(LinkLayer connectionParameters){
         case LlTx: {
             (void) signal(SIGALRM, alarmHandler); //when timer of alarm ends calls alarmHandler->alarmCount++
             while(connectionParameters.nRetransmissions!=0 && linkstate!=STOP_READ){
-                sendSUFrame(fd,A_TR,SET);
+                sendSUFrame(A_TR,SET,fd);
                 frames_sent++; 
                 alarm(connectionParameters.timeout);
                 alarmTriggered=FALSE;
@@ -79,8 +79,7 @@ int llopen(LinkLayer connectionParameters){
                                 break;
                             case FLAG_OK:
                                 if(byte==A_RT)linkstate=A_OK;
-                                else if(byte==FLAG)linkstate=FLAG_OK;    
-                                else linkstate=START;
+                                else if(byte != FLAG)linkstate=START; 
                                 break;
                             case A_OK:
                                 if(byte==UA)linkstate=C_OK;
@@ -88,7 +87,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;
                             case C_OK:
-                                if(byte==(A_RT^UA))linkstate=BCC1_OK;
+                                if(byte==UA^A_RT)linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
@@ -119,8 +118,7 @@ int llopen(LinkLayer connectionParameters){
                                 break;
                         case FLAG_OK:
                             if(byte==A_TR)linkstate=A_OK;
-                                else if(byte==FLAG)linkstate=FLAG_OK;    
-                                else linkstate=START;
+                                else if(byte != FLAG)linkstate=START; 
                                 break;
                         case A_OK:
                             if(byte==SET)linkstate=C_OK;
@@ -128,7 +126,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;
                         case C_OK:
-                            if(byte==(A_TR^SET))linkstate=BCC1_OK;
+                            if(byte==SET^A_RT)linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
@@ -137,17 +135,19 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;        
                         default:
+                            printf("error: entered default on LLOPEN-LLRX");
                             break;
 
                    } 
                 }
             }
-            sendSUFrame(fd,A_RT,UA);
+            sendSUFrame(A_RT,UA,fd);
             frames_sent++; 
             printf("\n DEBUG:SENT UA");
             break;
         }
         default:{
+            printf("Error-wrong role");
             return -1;
             break;
         }
@@ -218,8 +218,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                         break;
                     case FLAG_OK:
                         if(byte==A_RT)linkstate=A_OK;
-                        else if(byte==FLAG)linkstate=FLAG_OK;
-                        else linkstate=START;
+                        else if(byte!=FLAG)linkstate=START;
                         break;
                     case A_OK:
                         if(byte==SET||byte==UA||byte==RR(0)||byte==RR(1)||byte==REJ(0)||byte==REJ(1)||byte==DISC){
@@ -230,7 +229,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                         else linkstate=START;
                         break;
                     case C_OK:
-                        if(byte==(A_RT^byteRet))linkstate=BCC1_OK;
+                        if(byte==byteRet^A_RT)linkstate=BCC1_OK;
                         else if(byte==FLAG)linkstate=FLAG_OK;
                         else linkstate=START;
                         break;
@@ -244,7 +243,8 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                 }
             }
             if(byteRet==RR(0)||byteRet==RR(1)){
-                transferT=(transferT+1)%2;
+                if(transferT==0)transferT=1;
+                else if(transferT==1)transferT=0;
                 rr=TRUE;
                 }
             if(byteRet==REJ(0)||byteRet==REJ(1)) rej=TRUE;
@@ -253,7 +253,10 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     }    
     free(frame);
     if (rr)return frameSize;
-    else return -1;
+    else{
+            llclose(fd,TRUE);
+            return -1;
+        } 
 }
 
 ////////////////////////////////////////////////
@@ -277,7 +280,7 @@ int llread(int fd,unsigned char *packet)
                     break;
                 case FLAG_OK:
                     if(byte==A_TR)linkstate=A_OK;    
-                    else linkstate=START;
+                    else if (byte != FLAG) linkstate=START;
                     break;
                 case A_OK:
                     if(byte==C_N(0)||byte==C_N(1)){
@@ -286,14 +289,14 @@ int llread(int fd,unsigned char *packet)
                         }
                     else if(byte==FLAG)linkstate=FLAG_OK;
                     else if(byte==DISC){
-                        sendSUFrame(fd,A_RT,DISC);
+                        sendSUFrame(A_RT,DISC,fd);
                         frames_sent++; 
                         return 0;
                         }
                     else linkstate=START;
                     break;    
                 case C_OK:
-                    if (byte==(A_TR^cbyte))linkstate=READ_DATA;
+                    if (byte==cbyte^A_TR)linkstate=READ_DATA;
                     else if(byte==FLAG)linkstate=FLAG_OK;
                     else linkstate=START;
                     break;   
@@ -321,14 +324,15 @@ int llread(int fd,unsigned char *packet)
                         //bcc2 comparison
                         if(bcc2==read_bcc2){
                             linkstate=STOP_READ;
-                            sendSUFrame(fd,A_RT,RR(transferR));
+                            sendSUFrame(A_RT,RR(transferR),fd);
                             frames_sent++; 
-                            transferR=(transferR+1)%2;
+                            if(transferR==0)transferR=1;    
+                            else if (transferR==1)transferR=0;
                             return i;
                         }
                         else{
                             printf("\n RETRANSMISSION:(REJ)BCC2 NOT MATCHED");
-                            sendSUFrame(fd,A_RT,REJ(transferR));
+                            sendSUFrame(A_RT,REJ(transferR),fd);
                             frames_sent++; 
                         }  
                     }
@@ -365,7 +369,7 @@ int llclose(int fd,int showStatistics)
    
     (void) signal(SIGALRM, alarmHandler);
     while(transmission<retransmissions && linkstate!=STOP_READ){
-        sendSUFrame(fd,A_TR,DISC); //Transmiter sends receiver a DISC frame 
+        sendSUFrame(A_TR,DISC,fd); //Transmiter sends receiver a DISC frame 
         frames_sent++; 
         alarm(timeout);
         alarmTriggered=FALSE;
@@ -379,8 +383,7 @@ int llclose(int fd,int showStatistics)
                         break;
                     case FLAG_OK:
                         if(byte==A_RT)linkstate=A_OK;
-                        else if(byte==FLAG)linkstate=FLAG_OK;
-                        else linkstate=START;
+                        else if(byte!=FLAG)linkstate=START;
                         break;
                     case A_OK:
                         if(byte==DISC)linkstate=C_OK;      
@@ -388,7 +391,7 @@ int llclose(int fd,int showStatistics)
                         else linkstate=START;
                         break;
                     case C_OK:
-                        if(byte==(A_RT^DISC))linkstate=BCC1_OK;
+                        if(byte==DISC^A_RT)linkstate=BCC1_OK;
                         else if(byte==FLAG)linkstate=FLAG_OK;
                         else linkstate=START;
                         break;
@@ -405,7 +408,7 @@ int llclose(int fd,int showStatistics)
         }
         transmission++;
     }
-    sendSUFrame(fd, A_TR, UA); // if it was a DISC from Receiver then Transmiter sends UA to Receiver
+    sendSUFrame(A_TR, UA,fd); // if it was a DISC from Receiver then Transmiter sends UA to Receiver
     frames_sent++; 
     if (linkstate != STOP_READ){
         printf("EXHAUSTED ALL RETRANSMISSIONS");
@@ -422,7 +425,7 @@ int llclose(int fd,int showStatistics)
         }
 }
 
-int sendSUFrame(int fd, unsigned char A, unsigned char C){
+int sendSUFrame( unsigned char A, unsigned char C,int fd){
     unsigned char bcc1=A^C;
     unsigned char frame[5] = {FLAG, A, C, bcc1, FLAG};
     return write(fd,frame, 5);
