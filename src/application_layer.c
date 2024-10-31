@@ -8,8 +8,8 @@
 
 void applicationLayer(const char *serialPort, const char *role, int baudRate,int nTries, int timeout, const char *filename){   
     LinkLayer linklayer;
-    if (strcmp(role, "tx")) linklayer.role = LlRx;
-    else {linklayer.role = LlTx;}
+    if (strcmp(role, "tx")) linklayer.role = LlTx;
+    else {linklayer.role = LlRx;}
     linklayer.nRetransmissions = nTries;
     linklayer.baudRate = baudRate;
     linklayer.timeout = timeout;
