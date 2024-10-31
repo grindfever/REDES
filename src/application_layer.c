@@ -116,27 +116,39 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             //file size & filename extraction
             unsigned int rfile_size=0;
             unsigned char* name = readCPacket(packet, packet_size, &rfile_size); 
-            debug("startpacketread");
+            debugs("startpacketread");
             FILE* new_file = fopen((char *) name, "wb+");//file where we will copy the packets            
             packet_size = -1; 
             //data packet loop
-            debug("READING DATAPACKETS:");
-            while(TRUE){
-                while ((packet_size = llread(fd, packet)) < 0);
-                if(packet[0]==3){//Control End packet
-                    break;
-                }else if(packet[0] == 2){//data packet
-                    unsigned char *buffer = (unsigned char*)malloc(packet_size);
-                    for (unsigned int i = 0; i < packet_size - 4; i++) {
-                        buffer[i] = packet[i + 4];
-                    }
-                    buffer += packet_size + 4;
-                    fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
-                    free(buffer);
-                }
+            debugs("READING DATAPACKETS:");
+          while (TRUE) {
+    // Read the packet
+    while ((packet_size = llread(fd, packet)) < 0);
 
-            }
-            DEBUG("ALL DATA READ");
+    if (packet[0] == 3) { // Control End packet
+        break; // Exit loop on end packet
+    } else if (packet[0] == 2) { // Data packet
+        // Allocate buffer for the data
+        unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
+        if (buffer == NULL) {
+            perror("malloc failed");
+            break; // Exit loop if memory allocation fails
+        }
+        
+        // Copy data into buffer
+        for (unsigned int i = 0; i < packet_size - 4; i++) {
+            buffer[i] = packet[i + 4];
+        }
+
+        // Write data to the file
+        fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
+
+        // Free the allocated buffer
+        free(buffer);
+    }
+}
+
+            debugs("ALL DATA READ");
 
             free(packet);
             free(name);
