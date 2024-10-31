@@ -85,8 +85,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 bytes_left -= MAX_PAYLOAD_SIZE; 
                 data+=data_size; //
                 s=(s+1)%99;
-            }          
-            debugs("get end packet");                                //c=3->end control packet
+            }                                                 //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
                 debugs("Exit: error in end packet");
@@ -104,54 +103,43 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             Reconstruct the file by writing received packets to a file.
             Close the file and the link (llclose).*/
         case LlRx: {  
-            debugs("llRX");
+            debugs("LLRX");
             unsigned char *packet = (unsigned char *)malloc(MAX_PAYLOAD_SIZE);
             int packet_size = -1;
-            debugs("read packets:  ");
+            debugs("Getting packet size");
             while (packet_size < 0) {
                 packet_size = llread(fd, packet);
             }
-            debugs("done packets");
             //control start packet
             //file size & filename extraction
             unsigned int rfile_size=0;
             unsigned char* name = readCPacket(packet, packet_size, &rfile_size); 
-            debugs("startpacketread");
+            debugs("StartPacket ok");
             FILE* new_file = fopen((char *) name, "wb+");//file where we will copy the packets            
             packet_size = -1; 
             //data packet loop
             debugs("READING DATAPACKETS:");
-          while (TRUE) {
-    // Read the packet
-    while ((packet_size = llread(fd, packet)) < 0);
+            while (TRUE) {
+                // Read the packet
+                while ((packet_size = llread(fd, packet)) < 0);
 
-    if (packet[0] == 3) { // Control End packet
-        break; // Exit loop on end packet
-    } else if (packet[0] == 2) { // Data packet
-        // Allocate buffer for the data
-        unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
-        if (buffer == NULL) {
-            perror("malloc failed");
-            break; // Exit loop if memory allocation fails
-        }
-        
-        // Copy data into buffer
-        for (unsigned int i = 0; i < packet_size - 4; i++) {
-            buffer[i] = packet[i + 4];
-        }
-
-        // Write data to the file
-        fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
-
-        // Free the allocated buffer
-        free(buffer);
-    }
-}
-
-            debugs("ALL DATA READ");
-
+                if (packet[0] == 3) { // Control End packet
+                    break; 
+                } else if (packet[0] == 2) { // Data packet
+                  
+                    unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
+                    if (buffer == NULL) {
+                        break; // Exit loop,if nothing left to read
+                    }
+                    for (unsigned int i = 0; i < packet_size - 4; i++) {
+                        buffer[i] = packet[i + 4];
+                    }
+                    fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
+                    free(buffer);
+                }
+            }
+            debugs("EndPacket-ALL DATA READ");
             free(packet);
-            free(name);
             fclose(new_file);
             break;
         }

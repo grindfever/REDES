@@ -218,9 +218,14 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
         frame[stuffedi++] = buf[i];
         }
     }
-    frame[stuffedi++] = bcc2;
+    if(bcc2==FLAG||bcc2==ESCAPE){
+        frame = realloc(frame, ++frameSize);
+        frame[stuffedi++]=ESCAPE;
+        frame[stuffedi++]=bcc2^0x20;
+    }else{ 
+        frame[stuffedi++] = bcc2;
+    }
     frame[stuffedi++] = FLAG;
-
     int rr;
     int rej;
     int transmission=0;
@@ -300,8 +305,6 @@ int llread(int fd,unsigned char *packet)
     
     while(linkstate!=STOP_READ){
         int x=read(fd,&byte,1);
-         printf("byte-%x",byte);
-                    fflush(stdout);
         if (x>0){
             switch(linkstate){
                 case START:
@@ -350,7 +353,10 @@ int llread(int fd,unsigned char *packet)
                         for(int j=1;j<i;j++){
                             bcc2^=packet[j];
                         }
-                        //bcc2 comparison
+                        //bcc2 destuff and comparison
+                        if (bcc2 == FLAG || bcc2 == ESCAPE) {
+                            bcc2 ^= 0x20;
+                        }
                         if(bcc2==read_bcc2){
                             linkstate=STOP_READ;
                             if(sendSUFrame(A_RT,RR(transferR),fd)==-1)return -1;
@@ -455,6 +461,7 @@ int llclose(int fd,int showStatistics)
         printf("\n Number of Frames Sent : %d",frames_sent);
         fflush(stdout);
     }
+    debugs("saulgoodman");
     if(closeSerialPort()>-1) return 1;
     else {
         debugs("ERROR:closeSerialPort returned -1");
