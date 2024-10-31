@@ -22,6 +22,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
         exit(-1);
     }
     debugs("END LLOPEN");
+    debugs("ENTER SWITCH ROLE");
     switch (linklayer.role) {
         /*  Transmiter:
             Open the file to be transmitted.
@@ -29,11 +30,13 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             Send a control packet to indicate the start and end of the file transmission.
             Close the file and the link (llclose). */
         case LlTx: {
+            debugs("LLTX");
             FILE *file =fopen(filename,"rb");
             if(file==NULL){
                 printf("ERROR:File not found ");
                 exit(-1);
             } 
+            debugs("FILE OPENED");
             //get file size
             int fstart=ftell(file);
             fseek(file,0,SEEK_END);
@@ -46,6 +49,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 debugs("\n Exit:writing start packet\n");
                 exit(-1);
             }
+            debugs("start packet SENT");
 
             unsigned char* data=(unsigned char*)malloc(sizeof(unsigned char)* file_size);
             fread(data,sizeof(unsigned char),file_size,file);//reads from file to data file_size bytes/characters
@@ -56,6 +60,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
           
 
             //data distribution by packets 
+            debugs("SENDING DATAPACKETS");
             while(bytes_left>=0){ 
                 data_size=bytes_left;
                 if(data_size>MAX_PAYLOAD_SIZE)data_size=MAX_PAYLOAD_SIZE;
@@ -80,12 +85,14 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 bytes_left -= MAX_PAYLOAD_SIZE; 
                 data+=data_size; //
                 s=(s+1)%99;
-            }                                           //c=3->end control packet
+            }                                          //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
                 debugs("Exit: error in end packet");
                 exit(-1);
             }
+            debugs("SENT END PACKET"); 
+            debugs("LLCLOSE"); 
             llclose(fd,TRUE);
             break;
 
@@ -96,6 +103,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             Reconstruct the file by writing received packets to a file.
             Close the file and the link (llclose).*/
         case LlRx: {  
+            debugs("llRX");
             unsigned char *packet = (unsigned char *)malloc(MAX_PAYLOAD_SIZE);
             int packet_size = -1;
             while (packet_size < 0) {
@@ -104,9 +112,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             //control start packet
             //file size & filename extraction
             unsigned int rfile_size=0;
-            unsigned char* filename = readCPacket(packet, packet_size, &rfile_size); 
-
-            FILE* new_file = fopen((char *) filename, "wb+");//file where we will copy the packets            
+            unsigned char* name = readCPacket(packet, packet_size, &rfile_size); 
+            FILE* new_file = fopen((char *) name, "wb+");//file where we will copy the packets            
             packet_size = -1; 
             //data packet loop
             while(TRUE){
@@ -125,7 +132,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
 
             }
             free(packet);
-            free(filename);
+            free(name);
             fclose(new_file);
             break;
         }
