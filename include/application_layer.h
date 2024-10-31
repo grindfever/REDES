@@ -23,5 +23,5 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
 unsigned char * get_controlPacket(const unsigned int c, const char* file_name, long int file_size, unsigned int* size);
 
 //returns file name and modifies file_size to number of bytes read
-unsigned char* readCPacket(unsigned char* packet, int size, unsigned int *file_size);
+unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *file_size);
 #endif // _APPLICATION_LAYER_H_

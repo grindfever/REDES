@@ -55,8 +55,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             fread(data,sizeof(unsigned char),file_size,file);//reads from file to data file_size bytes/characters
 
             unsigned char s=0;    
-            int bytes_left=file_size;//bytes left to read
-            int data_size;//data size per packet 
+            long int bytes_left=file_size;//bytes left to read
+            long int data_size;//data size per packet 
           
 
             //data distribution by packets 
@@ -85,6 +85,9 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 bytes_left -= MAX_PAYLOAD_SIZE; 
                 data+=data_size; //
                 s=(s+1)%99;
+                for (int i = 0; i < data_packet_size; i++) {
+                printf("%02X ", datapacket[i]); // Print each byte as two hex digits
+    }
             }                                                 //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
@@ -112,7 +115,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             }
             //control start packet
             //file size & filename extraction
-            unsigned int rfile_size=0;
+            unsigned long int rfile_size=0;
             unsigned char* name = readCPacket(packet, packet_size, &rfile_size); 
             debugs("StartPacket ok");
             FILE* new_file = fopen((char *) name, "wb+");//file where we will copy the packets            
@@ -178,7 +181,7 @@ unsigned char * get_controlPacket(const unsigned int c, const char* file_name, l
 }
 
 // C|T1|L1|V1|T2|L2|V2
-unsigned char* readCPacket(unsigned char* packet, int size, unsigned int *file_size) {
+unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *file_size) {
     // File Size
     unsigned char l1 = packet[2];
     unsigned char l2l1extract[l1]; 
