@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 
+
 void applicationLayer(const char *serialPort, const char *role,const int baudRate,int nTries, int timeout, const char *filename){   
     LinkLayer linklayer;
     if (strcmp(role, "tx")) linklayer.role = LlRx;
@@ -87,7 +88,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 s=(s+1)%99;
                 for (int i = 0; i < data_packet_size; i++) {
                 printf("%02X ", datapacket[i]); // Print each byte as two hex digits
-    }
+                }
             }                                                 //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
@@ -125,7 +126,9 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             while (TRUE) {
                 // Read the packet
                 while ((packet_size = llread(fd, packet)) < 0);
-
+                for (int i = 0; i < packet_size; i++) {
+                printf("%02X ", packet[i]);
+                }
                 if (packet[0] == 3) { // Control End packet
                     break; 
                 } else if (packet[0] == 2) { // Data packet
@@ -146,11 +149,13 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             fclose(new_file);
             break;
         }
-        default: {
+        
+        default: 
             debugs("ERROR:entered default on applayer as receiver");
             exit(-1);
             break;
-        }
+        
+    
 }
 }
 
@@ -175,10 +180,11 @@ unsigned char * get_controlPacket(const unsigned int c, const char* file_name, l
     packet[pos++]=L2;
 
     for (unsigned int i = 0; i < L2; i++) {
-    packet[pos + i] = file_name[i];
+        packet[pos + i] = file_name[i];
     }
     return packet;
 }
+
 
 // C|T1|L1|V1|T2|L2|V2
 unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *file_size) {
@@ -202,3 +208,7 @@ unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *f
 
     return name; 
 }
+
+
+
+
