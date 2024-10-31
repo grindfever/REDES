@@ -111,7 +111,8 @@ int llopen(LinkLayer connectionParameters){
         case LlRx: {
             //Receiving SET from transmiter,gets stuck otherwise
             while(linkstate!=STOP_READ){
-                if(read(fd,&byte,1)){
+                int x=read(fd,&byte,1);
+                if(x>0){
                    switch(linkstate){
                         case START:
                             if(byte==FLAG)linkstate=FLAG_OK;
@@ -136,9 +137,15 @@ int llopen(LinkLayer connectionParameters){
                                 break;        
                         default:
                             printf("error: entered default on LLOPEN-LLRX");
+                            return -1;
                             break;
 
                    } 
+                }
+                else if (x==0)break;
+                else {
+                    printf("ERROR on LLRX LLOPEN");
+                    return -1;
                 }
             }
             sendSUFrame(A_RT,UA,fd);
@@ -204,6 +211,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     //each transmission writes frame to receiver and reads the acknowledgment(rr or rej) from the receiver
     //we are looking for an rr, if not we need to exhaust all retransmissions and return -1
     while(transmission<retransmissions && !rr){
+        printf("transmission write");
         rr= 0;
         rej = 0;
         alarmTriggered = FALSE;
@@ -273,7 +281,8 @@ int llread(int fd,unsigned char *packet)
     LinkLayerState linkstate=START;
     
     while(linkstate!=STOP_READ){
-        if (read(fd,&byte,1)){
+        int x=read(fd,&byte,1);
+        if (x>0){
             switch(linkstate){
                 case START:
                     if(byte==FLAG)linkstate=FLAG_OK;
@@ -345,6 +354,11 @@ int llread(int fd,unsigned char *packet)
                     return -1;
                     break;    
             }
+        }
+        else if(x==0)break;
+        else{
+            printf("ERROR-LLREAD X");
+            return -1;
         }
     }
     return -1;
