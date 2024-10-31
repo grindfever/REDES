@@ -107,7 +107,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             debugs("llRX");
             unsigned char *packet = (unsigned char *)malloc(MAX_PAYLOAD_SIZE);
             int packet_size = -1;
-            debugs("read packets");
+            debugs("read packets:  ");
             while (packet_size < 0) {
                 packet_size = llread(fd, packet);
             }
@@ -116,9 +116,11 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             //file size & filename extraction
             unsigned int rfile_size=0;
             unsigned char* name = readCPacket(packet, packet_size, &rfile_size); 
+            debug("startpacketread");
             FILE* new_file = fopen((char *) name, "wb+");//file where we will copy the packets            
             packet_size = -1; 
             //data packet loop
+            debug("READING DATAPACKETS:");
             while(TRUE){
                 while ((packet_size = llread(fd, packet)) < 0);
                 if(packet[0]==3){//Control End packet
@@ -134,6 +136,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 }
 
             }
+            DEBUG("ALL DATA READ");
+
             free(packet);
             free(name);
             fclose(new_file);
