@@ -84,7 +84,7 @@ int llclose(int fd,int showStatistics);
 
 //Sends supervision/unumbered frame to serial port fd 
 //Frame format: |FLAG|A|C|BCC1|FLAG|
-int sendSUFrame(int fd, unsigned char A, unsigned char C);
+int sendSUFrame(unsigned char A, unsigned char C, int fd);
 
 // Counts timeouts
 void alarmHandler(int signal);

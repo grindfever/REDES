@@ -87,7 +87,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;
                             case C_OK:
-                                if(byte==UA^A_RT)linkstate=BCC1_OK;
+                                if(byte==(UA^A_RT))linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
@@ -126,7 +126,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;
                         case C_OK:
-                            if(byte==SET^A_RT)linkstate=BCC1_OK;
+                            if(byte==(SET^A_RT))linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
@@ -229,7 +229,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                         else linkstate=START;
                         break;
                     case C_OK:
-                        if(byte==byteRet^A_RT)linkstate=BCC1_OK;
+                        if(byte==(byteRet^A_RT))linkstate=BCC1_OK;
                         else if(byte==FLAG)linkstate=FLAG_OK;
                         else linkstate=START;
                         break;
@@ -296,7 +296,7 @@ int llread(int fd,unsigned char *packet)
                     else linkstate=START;
                     break;    
                 case C_OK:
-                    if (byte==cbyte^A_TR)linkstate=READ_DATA;
+                    if (byte==(cbyte^A_TR))linkstate=READ_DATA;
                     else if(byte==FLAG)linkstate=FLAG_OK;
                     else linkstate=START;
                     break;   
@@ -391,7 +391,7 @@ int llclose(int fd,int showStatistics)
                         else linkstate=START;
                         break;
                     case C_OK:
-                        if(byte==DISC^A_RT)linkstate=BCC1_OK;
+                        if(byte==(DISC^A_RT))linkstate=BCC1_OK;
                         else if(byte==FLAG)linkstate=FLAG_OK;
                         else linkstate=START;
                         break;
