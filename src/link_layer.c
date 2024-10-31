@@ -472,8 +472,6 @@ int llclose(int fd,int showStatistics)
 int sendSUFrame( unsigned char A, unsigned char C,int fd){
     unsigned char bcc1=A^C;
     unsigned char frame[5] = {FLAG, A, C, bcc1, FLAG};
-    printf("\n %s",frame);
-    fflush(stdout);
     return write(fd,frame, 5);
 }
 void alarmHandler(int signal) {

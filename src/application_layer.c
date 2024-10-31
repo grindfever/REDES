@@ -86,9 +86,6 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 bytes_left -= MAX_PAYLOAD_SIZE; 
                 data+=data_size; //
                 s=(s+1)%99;
-                for (int i = 0; i < data_packet_size; i++) {
-                printf("%02X ", datapacket[i]); // Print each byte as two hex digits
-                }
             }                                                 //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
@@ -97,6 +94,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             }
             debugs("SENT END PACKET"); 
             debugs("LLCLOSE"); 
+            free(controlPacketStart);
+            free(controlPacketEnd);
             llclose(fd,TRUE);
             break;
 
@@ -126,9 +125,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             while (TRUE) {
                 // Read the packet
                 while ((packet_size = llread(fd, packet)) < 0);
-                for (int i = 0; i < packet_size; i++) {
-                printf("%02X ", packet[i]);
-                }
+            
                 if (packet[0] == 3) { // Control End packet
                     break; 
                 } else if (packet[0] == 2) { // Data packet
