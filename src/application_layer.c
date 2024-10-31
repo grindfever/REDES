@@ -85,7 +85,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 bytes_left -= MAX_PAYLOAD_SIZE; 
                 data+=data_size; //
                 s=(s+1)%99;
-            }                                          //c=3->end control packet
+            }          
+            debugs("get end packet");                                //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
                 debugs("Exit: error in end packet");
@@ -106,9 +107,11 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             debugs("llRX");
             unsigned char *packet = (unsigned char *)malloc(MAX_PAYLOAD_SIZE);
             int packet_size = -1;
+            debugs("read packets");
             while (packet_size < 0) {
                 packet_size = llread(fd, packet);
             }
+            debugs("done packets");
             //control start packet
             //file size & filename extraction
             unsigned int rfile_size=0;

@@ -70,15 +70,17 @@ int llopen(LinkLayer connectionParameters){
             while(connectionParameters.nRetransmissions!=0 && linkstate!=STOP_READ){
                 printf("%x|%x|%d",A_TR,SET,fd);
                 fflush(stdout);
+                debugs("transmission-----------------------------------");
                 if(sendSUFrame(A_TR,SET,fd)==-1)return -1;
                 debugs("sendframe correct");
                 frames_sent++; 
                 alarm(connectionParameters.timeout);
                 alarmTriggered=FALSE;
                 //UA acknowledgment if linkstate reaches STOP_READ if alarm triggers then nRetransmissions--
+                debugs("goint in to while alarmtrigger");
                 while(alarmTriggered==FALSE && linkstate!=STOP_READ){
-                    debugs("while alarmtrigger");
-                    if (read(fd, &byte, 1)){ 
+                    
+                    if (read(fd, &byte, 1)>0){ 
                         debugs("read");
 
                         switch(linkstate){
@@ -437,7 +439,7 @@ int llclose(int fd,int showStatistics)
                         break;                    
                 }
             }
-        }
+        }          
         transmission++;
     }
     if(sendSUFrame(A_TR, UA,fd)==-1)return -1; // if it was a DISC from Receiver then Transmiter sends UA to Receiver
@@ -463,6 +465,8 @@ int llclose(int fd,int showStatistics)
 int sendSUFrame( unsigned char A, unsigned char C,int fd){
     unsigned char bcc1=A^C;
     unsigned char frame[5] = {FLAG, A, C, bcc1, FLAG};
+    printf("\n %s",frame);
+    fflush(stdout);
     return write(fd,frame, 5);
 }
 void alarmHandler(int signal) {
