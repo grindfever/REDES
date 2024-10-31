@@ -89,4 +89,5 @@ int sendSUFrame(unsigned char A, unsigned char C, int fd);
 // Counts timeouts
 void alarmHandler(int signal);
 
+void debugs(char* string);
 #endif // _LINK_LAYER_H_

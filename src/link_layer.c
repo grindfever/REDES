@@ -17,7 +17,7 @@ int transferR=1;
 // LLOPEN
 ////////////////////////////////////////////////
 int llopen(LinkLayer connectionParameters){
-
+   
     if (openSerialPort(connectionParameters.serialPort,connectionParameters.baudRate) < 0)return -1;
     // TODO
     int fd = open(connectionParameters.serialPort, O_RDWR | O_NOCTTY);
@@ -34,7 +34,7 @@ int llopen(LinkLayer connectionParameters){
         perror("tcgetattr");
         exit(-1);
     }
-
+   
     memset(&newtio, 0, sizeof(newtio));
 
     newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
@@ -42,8 +42,8 @@ int llopen(LinkLayer connectionParameters){
     newtio.c_oflag = 0;
     // Set input mode (non-canonical, no echo,...)
     newtio.c_lflag = 0;
-    newtio.c_cc[VTIME] = 0; // Inter-character timer unused
-    newtio.c_cc[VMIN] = 5;  // Blocking read until 5 chars received
+    newtio.c_cc[VTIME] = 1; // Inter-character timer unused
+    newtio.c_cc[VMIN] = 0;  // Blocking read until 5 chars received
     // VTIME e VMIN should be changed in order to protect with a
     // timeout the reception of the following character(s)
 
@@ -53,6 +53,7 @@ int llopen(LinkLayer connectionParameters){
         perror("tcsetattr");
         return -1;
     }
+   
     //opened serialport for connection 
     //now we will send SET as the Transmiter and wait for UA from receiver and we will check this SET as the Receiver and send to the transmitter the UA
 
@@ -60,42 +61,55 @@ int llopen(LinkLayer connectionParameters){
     timeout = connectionParameters.timeout;
     retransmissions = connectionParameters.nRetransmissions;
     unsigned char byte;
-    
+    debugs("entering switch");
     switch (connectionParameters.role) {
 
         case LlTx: {
+            debugs("LLTX-");
             (void) signal(SIGALRM, alarmHandler); //when timer of alarm ends calls alarmHandler->alarmCount++
             while(connectionParameters.nRetransmissions!=0 && linkstate!=STOP_READ){
-                sendSUFrame(A_TR,SET,fd);
+                printf("%x|%x|%d",A_TR,SET,fd);
+                fflush(stdout);
+                if(sendSUFrame(A_TR,SET,fd)==-1)return -1;
+                debugs("sendframe correct");
                 frames_sent++; 
                 alarm(connectionParameters.timeout);
                 alarmTriggered=FALSE;
                 //UA acknowledgment if linkstate reaches STOP_READ if alarm triggers then nRetransmissions--
                 while(alarmTriggered==FALSE && linkstate!=STOP_READ){
+                    debugs("while alarmtrigger");
                     if (read(fd, &byte, 1)){ 
+                        debugs("read");
+
                         switch(linkstate){
                             case START:
+                                debugs("START");
                                 if(byte==FLAG)linkstate=FLAG_OK;
                                 break;
                             case FLAG_OK:
+                                debugs("FLAGOK");
                                 if(byte==A_RT)linkstate=A_OK;
                                 else if(byte != FLAG)linkstate=START; 
                                 break;
                             case A_OK:
+                                debugs("AOK");
                                 if(byte==UA)linkstate=C_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;
                             case C_OK:
+                                debugs("COK");
                                 if(byte==(UA^A_RT))linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
                             case BCC1_OK:
+                                debugs("BCC1OK");
                                 if(byte==FLAG)linkstate=STOP_READ;
                                 else linkstate=START;
                                 break;        
                             default:
+                            debugs("ERROR-DEFAULT AT LLOPEN "); 
                             break;
 
                         }
@@ -103,12 +117,14 @@ int llopen(LinkLayer connectionParameters){
                 }
                  connectionParameters.nRetransmissions--;    
             }
+            debugs("UA LOOP DONE");
             if(linkstate!=STOP_READ)return -1;
-            printf("\n DEBUG:RECEIVED UA");
+            debugs("received ua");
             break;
            
         }
         case LlRx: {
+            debugs("LLRX");
             //Receiving SET from transmiter,gets stuck otherwise
             while(linkstate!=STOP_READ){
                 int x=read(fd,&byte,1);
@@ -136,7 +152,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;        
                         default:
-                            printf("error: entered default on LLOPEN-LLRX");
+                            debugs("error: entered default on LLOPEN-LLRX");
                             return -1;
                             break;
 
@@ -144,22 +160,22 @@ int llopen(LinkLayer connectionParameters){
                 }
                 else if (x==0)break;
                 else {
-                    printf("ERROR on LLRX LLOPEN");
+                    debugs("ERROR on LLRX LLOPEN");
                     return -1;
                 }
             }
-            sendSUFrame(A_RT,UA,fd);
+            if(sendSUFrame(A_RT,UA,fd)==-1)return -1;
             frames_sent++; 
-            printf("\n DEBUG:SENT UA");
+            debugs("sent ua");
             break;
         }
         default:{
-            printf("Error-wrong role");
+            debugs("default-wrong role");
             return -1;
             break;
         }
  
-    }
+    } 
    return fd;
 }
 
@@ -211,7 +227,6 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     //each transmission writes frame to receiver and reads the acknowledgment(rr or rej) from the receiver
     //we are looking for an rr, if not we need to exhaust all retransmissions and return -1
     while(transmission<retransmissions && !rr){
-        printf("transmission write");
         rr= 0;
         rej = 0;
         alarmTriggered = FALSE;
@@ -246,7 +261,8 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                         else linkstate=START;
                         break;          
                     default:
-                        printf("ERROR ON LLWRITE ENTERED DEFAULT");
+                        
+                        debugs("ERROR ON LLWRITE ENTERED DEFAULT");
                         break;
                 }
             }
@@ -275,13 +291,15 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
 int llread(int fd,unsigned char *packet)
 {
     // TODO
-    unsigned char byte,cbyte;
+    unsigned char byte=0,cbyte;
     unsigned char read_bcc2,bcc2;
     int i=0;
     LinkLayerState linkstate=START;
     
     while(linkstate!=STOP_READ){
         int x=read(fd,&byte,1);
+         printf("byte-%x",byte);
+                    fflush(stdout);
         if (x>0){
             switch(linkstate){
                 case START:
@@ -298,7 +316,7 @@ int llread(int fd,unsigned char *packet)
                         }
                     else if(byte==FLAG)linkstate=FLAG_OK;
                     else if(byte==DISC){
-                        sendSUFrame(A_RT,DISC,fd);
+                        if(sendSUFrame(A_RT,DISC,fd)==-1)return -1;
                         frames_sent++; 
                         return 0;
                         }
@@ -316,7 +334,7 @@ int llread(int fd,unsigned char *packet)
                                 packet[i++]=byte^0x20;//removing the xor to get original byte
                             } 
                             else {
-                                printf("\n Retransmission:READ AFTER ESCAPE ERROR");
+                                debugs("\n Retransmission:READ AFTER ESCAPE ERROR");
                                 return -1;
                             }
                         }
@@ -333,15 +351,15 @@ int llread(int fd,unsigned char *packet)
                         //bcc2 comparison
                         if(bcc2==read_bcc2){
                             linkstate=STOP_READ;
-                            sendSUFrame(A_RT,RR(transferR),fd);
+                            if(sendSUFrame(A_RT,RR(transferR),fd)==-1)return -1;
                             frames_sent++; 
                             if(transferR==0)transferR=1;    
                             else if (transferR==1)transferR=0;
                             return i;
                         }
                         else{
-                            printf("\n RETRANSMISSION:(REJ)BCC2 NOT MATCHED");
-                            sendSUFrame(A_RT,REJ(transferR),fd);
+                            debugs("\n RETRANSMISSION:(REJ)BCC2 NOT MATCHED");
+                            if(sendSUFrame(A_RT,REJ(transferR),fd)==-1)return -1;
                             frames_sent++; 
                         }  
                     }
@@ -350,14 +368,14 @@ int llread(int fd,unsigned char *packet)
                     }
                     break;
                 default:
-                    printf("\n ERROR ON LLREAD ENTERED DEFAULT");
+                    debugs("\n ERROR ON LLREAD ENTERED DEFAULT");
                     return -1;
                     break;    
             }
         }
         else if(x==0)break;
         else{
-            printf("ERROR-LLREAD X");
+            debugs("error llread x");
             return -1;
         }
     }
@@ -383,7 +401,7 @@ int llclose(int fd,int showStatistics)
    
     (void) signal(SIGALRM, alarmHandler);
     while(transmission<retransmissions && linkstate!=STOP_READ){
-        sendSUFrame(A_TR,DISC,fd); //Transmiter sends receiver a DISC frame 
+        if(sendSUFrame(A_TR,DISC,fd)==-1)return -1; //Transmiter sends receiver a DISC frame 
         frames_sent++; 
         alarm(timeout);
         alarmTriggered=FALSE;
@@ -414,7 +432,7 @@ int llclose(int fd,int showStatistics)
                         else linkstate=START;
                         break;
                     default:
-                        printf("\n ERROR ON LLCLOSE ENTERED DEFAULT");
+                        debugs("\n ERROR ON LLCLOSE ENTERED DEFAULT");
                         return -1;
                         break;                    
                 }
@@ -422,19 +440,22 @@ int llclose(int fd,int showStatistics)
         }
         transmission++;
     }
-    sendSUFrame(A_TR, UA,fd); // if it was a DISC from Receiver then Transmiter sends UA to Receiver
+    if(sendSUFrame(A_TR, UA,fd)==-1)return -1; // if it was a DISC from Receiver then Transmiter sends UA to Receiver
     frames_sent++; 
     if (linkstate != STOP_READ){
-        printf("EXHAUSTED ALL RETRANSMISSIONS");
+        debugs("EXHAUSTED ALL RETRANSMISSIONS");
         return -1;
     }else if(showStatistics){
         printf("\n Number of Retransmissions : %d",transmission);
+        fflush(stdout);
         printf("\n Number of Timeouts : %d",alarmCount);
+        fflush(stdout);
         printf("\n Number of Frames Sent : %d",frames_sent);
+        fflush(stdout);
     }
     if(closeSerialPort()>-1) return 1;
     else {
-        printf("ERROR:closeSerialPort returned -1");
+        debugs("ERROR:closeSerialPort returned -1");
         return -1;
         }
 }
@@ -447,4 +468,8 @@ int sendSUFrame( unsigned char A, unsigned char C,int fd){
 void alarmHandler(int signal) {
     alarmTriggered = TRUE;
     alarmCount++;
+}
+void debugs(char* string){
+    printf("\n %s",string);
+    fflush(stdout);
 }

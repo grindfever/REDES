@@ -6,20 +6,22 @@
 #include <stdio.h>
 #include <math.h>
 
-void applicationLayer(const char *serialPort, const char *role, int baudRate,int nTries, int timeout, const char *filename){   
+void applicationLayer(const char *serialPort, const char *role,const int baudRate,int nTries, int timeout, const char *filename){   
     LinkLayer linklayer;
-    if (strcmp(role, "tx")) linklayer.role = LlTx;
-    else {linklayer.role = LlRx;}
+    if (strcmp(role, "tx")) linklayer.role = LlRx;
+    else {linklayer.role = LlTx;}
     linklayer.nRetransmissions = nTries;
     linklayer.baudRate = baudRate;
     linklayer.timeout = timeout;
-    strcpy(linklayer.serialPort,serialPort);
-
+    strcpy(linklayer.serialPort,serialPort); 
+    debugs("LLOPEN-");
     int fd=llopen(linklayer);
     if (fd < 0) {
-        perror("Connection error\n");
+        printf("Connection error\n");
+        fflush(stdout); 
         exit(-1);
     }
+    debugs("END LLOPEN");
     switch (linklayer.role) {
         /*  Transmiter:
             Open the file to be transmitted.
@@ -31,7 +33,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             if(file==NULL){
                 printf("ERROR:File not found ");
                 exit(-1);
-            }
+            } 
             //get file size
             int fstart=ftell(file);
             fseek(file,0,SEEK_END);
@@ -41,7 +43,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             unsigned int control_packet_size;               //c=1->start controlpacket
             unsigned char *controlPacketStart = get_controlPacket(1, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketStart, control_packet_size) < 0){ 
-                printf("\n Exit:writing start packet\n");
+                debugs("\n Exit:writing start packet\n");
                 exit(-1);
             }
 
@@ -54,7 +56,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
           
 
             //data distribution by packets 
-            while(bytes_left>=0){
+            while(bytes_left>=0){ 
                 data_size=bytes_left;
                 if(data_size>MAX_PAYLOAD_SIZE)data_size=MAX_PAYLOAD_SIZE;
                 unsigned char* packet_data = (unsigned char*) malloc(data_size);
@@ -72,7 +74,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 }   
 
                 if(llwrite(fd, datapacket, data_packet_size) < 0) {
-                    printf("Exit:applayer-writing data packets\n");
+                    debugs("Exit:applayer-writing data packets\n");
                     exit(-1);
                 }
                 bytes_left -= MAX_PAYLOAD_SIZE; 
@@ -80,8 +82,8 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
                 s=(s+1)%99;
             }                                           //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
-            if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) { 
-                printf("Exit: error in end packet\n");
+            if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
+                debugs("Exit: error in end packet");
                 exit(-1);
             }
             llclose(fd,TRUE);
@@ -93,7 +95,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             Receive data packets using llread.
             Reconstruct the file by writing received packets to a file.
             Close the file and the link (llclose).*/
-        case LlRx: {
+        case LlRx: {  
             unsigned char *packet = (unsigned char *)malloc(MAX_PAYLOAD_SIZE);
             int packet_size = -1;
             while (packet_size < 0) {
@@ -128,7 +130,7 @@ void applicationLayer(const char *serialPort, const char *role, int baudRate,int
             break;
         }
         default: {
-            printf("\n ERROR:entered default on applayer as receiver");
+            debugs("ERROR:entered default on applayer as receiver");
             exit(-1);
             break;
         }
