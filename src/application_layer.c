@@ -189,7 +189,7 @@ unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *f
     unsigned char file_name_size = packet[3 + l1 + 1]; 
     unsigned char *name = (unsigned char*)malloc(file_name_size + 1); // +1 for null terminator
     if (name == NULL) {
-        debugs("mem alocation error for filename in readCPacket")
+        debugs("mem alocation error for filename in readCPacket");
         exit(-1);
     }
 
