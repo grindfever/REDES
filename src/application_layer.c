@@ -111,7 +111,12 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             unsigned long int rfile_size=0;
             unsigned char* name = readCPacket(packet, packet_size, &rfile_size); 
             debugs("StartPacket ok");
-            FILE* new_file = fopen((char *) name, "wb+");//file where we will copy the packets            
+            unsigned char* new_name = (unsigned char *)malloc(strlen((char *)name) + 10); // 10 for "-received" and null terminator  
+            // Copy the original name and append "-received"
+            strcpy((char *)new_name, (char *)name);
+            strcat((char *)new_name, "-received");
+
+            FILE* new_file = fopen((char *) new_name, "wb+");//file where we will copy the packets            
             packet_size = -1; 
             //data packet loop
             debugs("READING DATAPACKETS:\n");
