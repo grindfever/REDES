@@ -31,13 +31,11 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             Send a control packet to indicate the start and end of the file transmission.
             Close the file and the link (llclose). */
         case LlTx: {
-            debugs("app-LLTX");
             FILE *file =fopen(filename,"rb");
             if(file==NULL){
                 printf("ERROR:File not found ");
                 exit(-1);
             } 
-            debugs("FILE OPENED");
             //get file size
             int fstart=ftell(file);
             fseek(file,0,SEEK_END);
@@ -61,21 +59,21 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
           
             int offset=0;
             //data distribution by packets 
-            debugs("SENDING DATAPACKETS");
+            debugs("SENDING DATAPACKETS\n");
             while(bytes_left>0){ 
-                data_size=bytes_left;
-                if(data_size>MAX_PAYLOAD_SIZE)data_size=MAX_PAYLOAD_SIZE;
+                data_size=MAX_PAYLOAD_SIZE;
+                if(data_size>bytes_left)data_size=bytes_left;
                 unsigned char* packet_data = (unsigned char*) malloc(data_size);
                 for (int i = 0; i < data_size; i++) {
                     
                     packet_data[i] = data[offset+i];
                 }
-                int data_packet_size=4+data_size; //C|S|L1|L2|DATA ->1|1|1|1|DATA_SIZE
+                int data_packet_size=4+data_size; //C|S|L2|L1|DATA ->1|1|1|1|DATA_SIZE
                 unsigned char* datapacket = (unsigned char*)malloc(data_packet_size);
                 datapacket[0] = 2;  //c=2->datapacket
                 datapacket[1] = s;
-                datapacket[2] = data_size >> 8 & 0xFF; //L2=MSB of data_size
-                datapacket[3] = data_size & 0xFF;      //L1=LSB of data_size
+                datapacket[2] = data_size >> 8 & 0xFF; 
+                datapacket[3] = data_size & 0xFF;      
                 for (int i = 0; i < data_size; i++) {
                     datapacket[i + 4] = packet_data[i]; 
                 }   
@@ -85,8 +83,9 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                     exit(-1);
                 }   
                 
-                bytes_left -= MAX_PAYLOAD_SIZE; 
-                
+                bytes_left -= data_size; 
+                printf("packet %d data size:%ld \n",s,data_size);
+                fflush(stdout);
                 offset+=data_size;
                 s=(s+1)%99;
             }                                                 //c=3->end control packet
@@ -97,7 +96,6 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             }else{ 
                 debugs("End Packet sent");
             }
-            debugs("LLCLOSE"); 
             free(controlPacketStart);
             free(controlPacketEnd);
             llclose(fd,TRUE);
@@ -132,9 +130,10 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                     debugs("waiting packet");
                 }
                 printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
+                printf("   -packet size:%d",packet_size);
                 fflush(stdout);
                 if(packet_size==0)break;
-                else if(packet[0]!=3){
+                else if(packet[0]==2){
                      unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
                     if (buffer == NULL) {
                         debugs("failed to alocate mem for buffer");
@@ -143,7 +142,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                     memcpy(buffer,packet+4,packet_size-4);
                     buffer += packet_size+4;
                     fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
-                    free(buffer);
+                
                 }else continue;
             }
             debugs("EndPacket-ALL DATA READ");
