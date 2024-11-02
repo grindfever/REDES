@@ -83,7 +83,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 if(llwrite(fd, datapacket, data_packet_size) < 0) {
                     debugs("Exit:applayer-writing data packets\n");
                     exit(-1);
-                }
+                }   
+                debugs("-");
                 bytes_left -= MAX_PAYLOAD_SIZE; 
                 data+=data_size; //moves pointer data_size bytes
                 //offset+=data_size;
@@ -188,25 +189,27 @@ unsigned char * get_controlPacket(const unsigned int c, const char* file_name, l
 
 // C|T1|L1|V1|T2|L2|V2
 unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *file_size) {
-    // File Size
-    unsigned char l1 = packet[2];
-    unsigned char l2l1extract[l1]; 
-    *file_size = 0; 
+    // File Size (TLV1)
+    unsigned char l1 = packet[2]; // Length of V1 (file size)
+    *file_size = 0;
     for (unsigned int i = 0; i < l1; i++) {
-        l2l1extract[i] = packet[3 + i];
+        *file_size = (*file_size << 8) | packet[3 + i];
     }
-    for (unsigned int i = 0; i < l1; i++) {
-        *file_size |= (l2l1extract[l1 - i - 1] << (8 * i));
-    }
-    // File Name
+
+    // File Name (TLV2)
     unsigned char file_name_size = packet[3 + l1 + 1]; 
-    unsigned char *name = (unsigned char*)malloc(file_name_size); 
+    unsigned char *name = (unsigned char*)malloc(file_name_size + 1); // +1 for null terminator
+    if (name == NULL) {
+        fprintf(stderr, "Memory allocation failed for file name.\n");
+        exit(-1);
+    }
 
     for (unsigned int i = 0; i < file_name_size; i++) {
         name[i] = packet[3 + l1 + 2 + i];
     }
+    name[file_name_size] = '\0'; // Null-terminate the filename string
 
-    return name; 
+    return name;
 }
 
 
