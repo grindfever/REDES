@@ -107,7 +107,7 @@ int llopen(LinkLayer connectionParameters){
                  connectionParameters.nRetransmissions--;    
             }
             if(linkstate!=STOP_READ)return -1;
-            debugs("Connection established -received UA");
+            debugs("Connection established\n");
             break;
            
         }
@@ -153,7 +153,7 @@ int llopen(LinkLayer connectionParameters){
             }
             if(sendSUFrame(A_RT,UA,fd)==-1)return -1;
             frames_sent++; 
-            debugs("Connection established -UA SENT");
+            debugs("Connection established");
             break;
         }
         default:{

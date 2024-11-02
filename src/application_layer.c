@@ -189,7 +189,7 @@ unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *f
     unsigned char file_name_size = packet[3 + l1 + 1]; 
     unsigned char *name = (unsigned char*)malloc(file_name_size + 1); // +1 for null terminator
     if (name == NULL) {
-        fprintf(stderr, "Memory allocation failed for file name.\n");
+        debugs("mem alocation error for filename in readCPacket")
         exit(-1);
     }
 
@@ -197,8 +197,8 @@ unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *f
         name[i] = packet[3 + l1 + 2 + i];
     }
     name[file_name_size] = '\0'; // Null-terminate the filename string
-    printf("\nFile size :%ld",*file_size);
     printf("\nName : %s\n", name);
+    printf("\nFile size :%ld",*file_size);
     fflush(stdout);
     return name;
 }
