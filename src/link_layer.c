@@ -443,7 +443,7 @@ int llclose(int fd,int showStatistics)
         fflush(stdout);
         printf("\n Number of Timeouts : %d",alarmCount);
         fflush(stdout);
-        printf("\n Number of Frames Sent : %d",frames_sent);
+        printf("\n Number of Frames Sent : %d\n",frames_sent);
         fflush(stdout);
     }
     if(closeSerialPort()>-1) return 1;

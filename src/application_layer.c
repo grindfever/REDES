@@ -79,7 +79,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 }   
                 
                 bytes_left -= data_size; 
-                printf("packet %d data size:%ld \n",s,data_size);
+                printf("Packet %d data size:%ld \n",s,data_size);
                 fflush(stdout);
                 offset+=data_size;
                 s=(s+1)%99;
