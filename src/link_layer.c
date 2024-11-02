@@ -66,47 +66,38 @@ int llopen(LinkLayer connectionParameters){
 
         case LlTx: {
             debugs("LLTX-");
-            (void) signal(SIGALRM, alarmHandler); //when timer of alarm ends calls alarmHandler->alarmCount++
+            (void) signal(SIGALRM, alarmHandler); //when timer of alarm ends calls alarmHandler->alarmTriggered=TRUE & alarmCount++
             while(connectionParameters.nRetransmissions!=0 && linkstate!=STOP_READ){
                 printf("%x|%x|%d",A_TR,SET,fd);
                 fflush(stdout);
                 debugs("transmission-----------------------------------");
                 if(sendSUFrame(A_TR,SET,fd)==-1)return -1;
-                debugs("sendframe correct");
                 frames_sent++; 
                 alarm(connectionParameters.timeout);
                 alarmTriggered=FALSE;
                 //UA acknowledgment if linkstate reaches STOP_READ if alarm triggers then nRetransmissions--
-                debugs("goint in to while alarmtrigger");
                 while(alarmTriggered==FALSE && linkstate!=STOP_READ){
                     
                     if (read(fd, &byte, 1)>0){ 
-                        debugs("read");
-
                         switch(linkstate){
                             case START:
-                                debugs("START");
                                 if(byte==FLAG)linkstate=FLAG_OK;
                                 break;
                             case FLAG_OK:
-                                debugs("FLAGOK");
                                 if(byte==A_RT)linkstate=A_OK;
                                 else if(byte != FLAG)linkstate=START; 
                                 break;
                             case A_OK:
-                                debugs("AOK");
                                 if(byte==UA)linkstate=C_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;
                             case C_OK:
-                                debugs("COK");
                                 if(byte==(UA^A_RT))linkstate=BCC1_OK;
                                 else if(byte==FLAG)linkstate=FLAG_OK;    
                                 else linkstate=START;
                                 break;   
                             case BCC1_OK:
-                                debugs("BCC1OK");
                                 if(byte==FLAG)linkstate=STOP_READ;
                                 else linkstate=START;
                                 break;        
@@ -119,9 +110,8 @@ int llopen(LinkLayer connectionParameters){
                 }
                  connectionParameters.nRetransmissions--;    
             }
-            debugs("UA LOOP DONE");
             if(linkstate!=STOP_READ)return -1;
-            debugs("received ua");
+            debugs("Connection made - received UA");
             break;
            
         }
@@ -154,7 +144,7 @@ int llopen(LinkLayer connectionParameters){
                                 else linkstate=START;
                                 break;        
                         default:
-                            debugs("error: entered default on LLOPEN-LLRX");
+                            debugs("ERROR: entered default on LLOPEN-LLRX");
                             return -1;
                             break;
 
@@ -162,17 +152,17 @@ int llopen(LinkLayer connectionParameters){
                 }
                 else if (x==0)break;
                 else {
-                    debugs("ERROR on LLRX LLOPEN");
+                    debugs("ERROR reading on LLRX LLOPEN");
                     return -1;
                 }
             }
             if(sendSUFrame(A_RT,UA,fd)==-1)return -1;
             frames_sent++; 
-            debugs("sent ua");
+            debugs("UA SENT");
             break;
         }
         default:{
-            debugs("default-wrong role");
+            debugs("ERROR:default->wrong role LLOPEN");
             return -1;
             break;
         }
@@ -196,19 +186,16 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     frame[1]=A_TR;
     frame[2]=C_N(transferT);
     frame[3]=A_TR^C_N(transferT);
-    for (int i = 0; i < bufSize; i++) {
-        frame[4 + i] = buf[i];   //D1 to DN
-    }
 
+    //calculate bcc2 ->byte stuffing(data into frame->bcc2 into frame)
     unsigned char bcc2 = buf[0];
     for (int i = 1; i < bufSize; i++) {
         bcc2 ^= buf[i];  // BCC2=D1^D2^D3.....^DN
     }
     //DATA field with byte stuffing
-    //if FLAG is found on buf replace with ESCAPE then FLAG^0X20
-    //if ESCAPE is found on buf replace with ESCAPE then ESCAPE^0X20
+    //if FLAG -> ESCAPE then FLAG^0X20
+    //if ESCAPE -> ESCAPE then ESCAPE^0X20
     int stuffedi = 4;
-
     for (int i = 0; i < bufSize; i++) {
         if (buf[i] == FLAG || buf[i] == ESCAPE) {
             frame = realloc(frame, ++frameSize); 
@@ -218,6 +205,7 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
         frame[stuffedi++] = buf[i];
         }
     }
+    //BCC2 byte stuffing
     if(bcc2==FLAG||bcc2==ESCAPE){
         frame = realloc(frame, ++frameSize);
         frame[stuffedi++]=ESCAPE;
@@ -236,10 +224,12 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     while(transmission<retransmissions && !rr){
         rr= 0;
         rej = 0;
+        byte=0;
+        byteRet=0;
         alarmTriggered = FALSE;
         alarm(timeout);
         while (alarmTriggered == FALSE && !rr && !rej) {
-            write(fd,frame,stuffedi);
+            if(write(fd,frame,stuffedi)==-1)return -1;
             frames_sent++; 
             if (read(fd, &byte, 1)){ 
                 switch(linkstate){
@@ -268,7 +258,6 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
                         else linkstate=START;
                         break;          
                     default:
-                        
                         debugs("ERROR ON LLWRITE ENTERED DEFAULT");
                         break;
                 }
@@ -284,7 +273,8 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
     }    
     free(frame);
     if (rr)return frameSize;
-    else{
+    else{   
+            debugs("No positive ACK(RR),Closing Connection");
             llclose(fd,TRUE);
             return -1;
         } 
@@ -293,13 +283,13 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
 ////////////////////////////////////////////////
 // LLREAD
 ////////////////////////////////////////////////
-//packet: array of characters read
+//packet: array of characters that were read
 //return array length/number of characters read), -1 if error
 int llread(int fd,unsigned char *packet)
 {
     // TODO
     unsigned char byte=0,cbyte;
-    unsigned char read_bcc2,bcc2;
+    unsigned char read_bcc2=0,bcc2=0;
     int i=0;
     LinkLayerState linkstate=START;
     
@@ -346,8 +336,8 @@ int llread(int fd,unsigned char *packet)
                     }
                     else if(byte==FLAG){ //end of DATA field ->calculate bcc2->compare bcc2
                         read_bcc2=packet[i-1];
-                        i--;
-                        packet[i]='\0';
+                        i--;            //losing 1 byte of the packet
+                        packet[i]='\0'; //and changing the last byte to eof instead of bcc2
                         //calculate bcc2 with data in packet to compare with read_bcc2
                         bcc2=packet[0];
                         for(int j=1;j<i;j++){
@@ -461,7 +451,6 @@ int llclose(int fd,int showStatistics)
         printf("\n Number of Frames Sent : %d",frames_sent);
         fflush(stdout);
     }
-    debugs("saulgoodman");
     if(closeSerialPort()>-1) return 1;
     else {
         debugs("ERROR:closeSerialPort returned -1");
