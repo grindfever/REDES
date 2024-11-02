@@ -79,7 +79,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 for (int i = 0; i < data_size; i++) {
                     datapacket[i + 4] = packet_data[i]; 
                 }   
-
+               
                 if(llwrite(fd, datapacket, data_packet_size) < 0) {
                     debugs("Exit:applayer-writing data packets\n");
                     exit(-1);
@@ -133,22 +133,18 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 }
                 printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
                 fflush(stdout);
-                if (packet[0] == 3) { // Control End packet
-                    debugs("END PACKET READ");
-                    break; 
-                } else if (packet[0] == 2) { // Data packet
-
-                    unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
+                if(packet_size==0)break;
+                else if(packet[0]!=3){
+                     unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
                     if (buffer == NULL) {
                         debugs("failed to alocate mem for buffer");
                         break; // Exit loop
                     }
-                    for (unsigned int i = 0; i < packet_size - 4; i++) {
-                        buffer[i] = packet[i + 4];
-                    }
+                    memcpy(buffer,packet+4,packet_size-4);
+                    buffer += packet_size+4;
                     fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
                     free(buffer);
-                }
+                }else continue;
             }
             debugs("EndPacket-ALL DATA READ");
             free(packet);
