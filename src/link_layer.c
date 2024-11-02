@@ -226,11 +226,11 @@ int llwrite(int fd, const unsigned char *buf, int bufSize)
         rej = 0;
         byte=0;
         byteRet=0;
+        if(write(fd,frame,stuffedi)==-1)return -1;
+            frames_sent++; 
         alarmTriggered = FALSE;
         alarm(timeout);
         while (alarmTriggered == FALSE && !rr && !rej) {
-            if(write(fd,frame,stuffedi)==-1)return -1;
-            frames_sent++; 
             if (read(fd, &byte, 1)){ 
                 switch(linkstate){
                     case START:
