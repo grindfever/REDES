@@ -31,7 +31,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             Send a control packet to indicate the start and end of the file transmission.
             Close the file and the link (llclose). */
         case LlTx: {
-            debugs("LLTX");
+            debugs("app-LLTX");
             FILE *file =fopen(filename,"rb");
             if(file==NULL){
                 printf("ERROR:File not found ");
@@ -44,10 +44,10 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             int file_size=ftell(file)-fstart;
             fseek(file,fstart,SEEK_SET);
             //start controlpacket
-            unsigned int control_packet_size;               //c=1->start controlpacket
+            unsigned int control_packet_size=0;               //c=1->start controlpacket
             unsigned char *controlPacketStart = get_controlPacket(1, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketStart, control_packet_size) < 0){ 
-                debugs("\n Exit:writing start packet\n");
+                debugs("\n ERROR:writing start packet\n");
                 exit(-1);
             }
             debugs("start packet SENT");
@@ -59,15 +59,16 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             long int bytes_left=file_size;//bytes left to read
             long int data_size;//data size per packet 
           
-
+            //int offset=0;
             //data distribution by packets 
             debugs("SENDING DATAPACKETS");
-            while(bytes_left>=0){ 
+            while(bytes_left>0){ 
                 data_size=bytes_left;
                 if(data_size>MAX_PAYLOAD_SIZE)data_size=MAX_PAYLOAD_SIZE;
                 unsigned char* packet_data = (unsigned char*) malloc(data_size);
                 for (int i = 0; i < data_size; i++) {
                     packet_data[i] = data[i];
+                    //packet_data[i] = data[offset+i];
                 }
                 int data_packet_size=4+data_size; //C|S|L1|L2|DATA ->1|1|1|1|DATA_SIZE
                 unsigned char* datapacket = (unsigned char*)malloc(data_packet_size);
@@ -84,7 +85,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                     exit(-1);
                 }
                 bytes_left -= MAX_PAYLOAD_SIZE; 
-                data+=data_size; //
+                data+=data_size; //moves pointer data_size bytes
+                //offset+=data_size;
                 s=(s+1)%99;
             }                                                 //c=3->end control packet
             unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
@@ -155,7 +157,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
     
 }
 }
-
+//returns packet,|C|TLV1|TLV2| TLV1=FILESIZE TLV2=FILENAME
+//gets size/packetsize
 unsigned char * get_controlPacket(const unsigned int c, const char* file_name, long int file_size, unsigned int* size){
 
     const int L1 = (int) ceil(log2f((float)file_size)/8.0);
