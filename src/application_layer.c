@@ -208,7 +208,9 @@ unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *f
         name[i] = packet[3 + l1 + 2 + i];
     }
     name[file_name_size] = '\0'; // Null-terminate the filename string
-
+    printf("file size received:%ld",*file_size);
+    printf("Name received: %s\n", name);
+    fflush(stdout);
     return name;
 }
 
