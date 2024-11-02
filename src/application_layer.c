@@ -62,7 +62,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             int offset=0;
             //data distribution by packets 
             debugs("SENDING DATAPACKETS");
-            while(bytes_left>=0){ 
+            while(bytes_left>0){ 
                 data_size=bytes_left;
                 if(data_size>MAX_PAYLOAD_SIZE)data_size=MAX_PAYLOAD_SIZE;
                 unsigned char* packet_data = (unsigned char*) malloc(data_size);
@@ -84,7 +84,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                     debugs("Exit:applayer-writing data packets\n");
                     exit(-1);
                 }   
-                debugs("-");
+                
                 bytes_left -= MAX_PAYLOAD_SIZE; 
                 
                 offset+=data_size;
@@ -94,8 +94,9 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
                 debugs("Exit: error in end packet");
                 exit(-1);
+            }else{ 
+                debugs("End Packet sent");
             }
-            debugs("SENT END PACKET"); 
             debugs("LLCLOSE"); 
             free(controlPacketStart);
             free(controlPacketEnd);
@@ -127,16 +128,20 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             debugs("READING DATAPACKETS:");
             while (TRUE) {
                 // Read the packet
-                while ((packet_size = llread(fd, packet)) < 0);
-            
+                while ((packet_size = llread(fd, packet)) < 0){
+                    debugs("waiting packet");
+                }
+                printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
+                fflush(stdout);
                 if (packet[0] == 3) { // Control End packet
                     debugs("END PACKET READ");
                     break; 
                 } else if (packet[0] == 2) { // Data packet
-                  
+
                     unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
                     if (buffer == NULL) {
-                        ; // Exit loop,if nothing left to read
+                        debugs("failed to alocate mem for buffer");
+                        break; // Exit loop
                     }
                     for (unsigned int i = 0; i < packet_size - 4; i++) {
                         buffer[i] = packet[i + 4];
