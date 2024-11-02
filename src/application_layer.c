@@ -149,8 +149,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
 //returns packet,|C|TLV1|TLV2| TLV1=FILESIZE TLV2=FILENAME
 //gets size/packetsize
 unsigned char * get_controlPacket(const unsigned int c, const char* file_name, long int file_size, unsigned int* size){
-    printf("Name: %s\n", file_name);
-    printf("File size: %ld\n", file_size);
+  
     const int L1 = (int) ceil(log2f((float)file_size)/8.0);
     const int L2 = strlen(file_name);
     *size = 3+L1+2+L2;
@@ -197,8 +196,6 @@ unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *f
         name[i] = packet[3 + l1 + 2 + i];
     }
     name[file_name_size] = '\0'; // Null-terminate the filename string
-    printf("\nName : %s\n", name);
-    printf("\nFile size :%ld",*file_size);
     fflush(stdout);
     return name;
 }
