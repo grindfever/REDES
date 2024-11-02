@@ -125,25 +125,29 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             //data packet loop
             debugs("READING DATAPACKETS:");
             while (TRUE) {
-                // Read the packet
-                while ((packet_size = llread(fd, packet)) < 0){
-                    debugs("waiting packet");
-                }
-                printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
-                printf("   -packet size:%d",packet_size);
-                fflush(stdout);
-                if(packet_size==0)break;
-                else if(packet[0]==2){
-                     unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
-                    if (buffer == NULL) {
-                        debugs("failed to alocate mem for buffer");
-                        break; // Exit loop
-                    }
-                    memcpy(buffer,packet+4,packet_size-4);
-                    buffer += packet_size+4;
-                    fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
-                
-                }else continue;
+        while ((packet_size = llread(fd, packet)) < 0) {
+            debugs("waiting for packet");
+        }
+
+        printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
+        printf("   -packet size: %d\n", packet_size);
+        fflush(stdout);
+
+        if (packet_size == 0) {
+            break; // End of transmission
+        } else if (packet[0] == 2) { // Check if it's a data packet
+            unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
+            if (buffer == NULL) {
+                debugs("Failed to allocate memory for buffer");
+                break; // Exit loop
+            }
+
+            // Copy only the data from the packet (ignoring the header)
+            memcpy(buffer, packet + 4, packet_size - 4);
+
+            // Write the buffer to the new file
+            fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
+            free(buffer); // Free the temporary bufferelse continue;
             }
             debugs("EndPacket-ALL DATA READ");
             free(packet);
