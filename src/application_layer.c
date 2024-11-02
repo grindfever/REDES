@@ -90,7 +90,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 //offset+=data_size;
                 s=(s+1)%99;
             }                                                 //c=3->end control packet
-            unsigned char *controlPacketEnd = get_controlPacket(3, filename, file_size, &control_packet_size);
+            unsigned char *controlPacketEnd=get_controlPacket(3, filename, file_size, &control_packet_size);
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
                 debugs("Exit: error in end packet");
                 exit(-1);
@@ -130,6 +130,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 while ((packet_size = llread(fd, packet)) < 0);
             
                 if (packet[0] == 3) { // Control End packet
+                    debugs("END PACKET READ");
                     break; 
                 } else if (packet[0] == 2) { // Data packet
                   
@@ -161,7 +162,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
 //returns packet,|C|TLV1|TLV2| TLV1=FILESIZE TLV2=FILENAME
 //gets size/packetsize
 unsigned char * get_controlPacket(const unsigned int c, const char* file_name, long int file_size, unsigned int* size){
-
+    printf("Name: %s\n", file_name);
+    printf("File size: %ld\n", file_size);
     const int L1 = (int) ceil(log2f((float)file_size)/8.0);
     const int L2 = strlen(file_name);
     *size = 3+L1+2+L2;
@@ -208,8 +210,8 @@ unsigned char* readCPacket(unsigned char* packet, int size, unsigned long int *f
         name[i] = packet[3 + l1 + 2 + i];
     }
     name[file_name_size] = '\0'; // Null-terminate the filename string
-    printf("file size received:%ld",*file_size);
-    printf("Name received: %s\n", name);
+    printf("\nFile size :%ld",*file_size);
+    printf("\nName : %s\n", name);
     fflush(stdout);
     return name;
 }
