@@ -133,7 +133,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 printf(" -- packet size:%d\n",packet_size);
                 fflush(stdout);
             }
-            debugs("Transfer Complete");
+            debugs("Transfer Complete\n");
             free(packet);
             fclose(new_file);
             break;
