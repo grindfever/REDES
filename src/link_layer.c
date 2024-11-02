@@ -66,8 +66,6 @@ int llopen(LinkLayer connectionParameters){
         case LlTx: {
             (void) signal(SIGALRM, alarmHandler); //when timer of alarm ends calls alarmHandler->alarmTriggered=TRUE & alarmCount++
             while(connectionParameters.nRetransmissions!=0 && linkstate!=STOP_READ){
-                printf("%x|%x|%d",A_TR,SET,fd);
-                fflush(stdout);
                 debugs("---------------transmission--------------------");
                 if(sendSUFrame(A_TR,SET,fd)==-1)return -1;
                 frames_sent++; 
@@ -114,7 +112,6 @@ int llopen(LinkLayer connectionParameters){
            
         }
         case LlRx: {
-            debugs("LLRX");
             //Receiving SET from transmiter,gets stuck otherwise
             while(linkstate!=STOP_READ){
                 int x=read(fd,&byte,1);

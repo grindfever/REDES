@@ -2,6 +2,7 @@
     "files.associations": {
         "locale": "c",
         "string": "c",
-        "*.inc": "c"
+        "*.inc": "c",
+        "link_layer.h": "c"
     }
 }

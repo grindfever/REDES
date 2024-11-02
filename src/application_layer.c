@@ -129,7 +129,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                     fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
                     free(buffer);
                 }else continue;
-                printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
+                printf("Packet: c=%d, s=%d, l2=%d, l1=%d", packet[0], packet[1], packet[2], packet[3]);
                 printf(" -- packet size:%d\n",packet_size);
                 fflush(stdout);
             }
