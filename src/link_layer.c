@@ -61,16 +61,14 @@ int llopen(LinkLayer connectionParameters){
     timeout = connectionParameters.timeout;
     retransmissions = connectionParameters.nRetransmissions;
     unsigned char byte;
-    debugs("entering switch");
     switch (connectionParameters.role) {
 
         case LlTx: {
-            debugs("LLTX-");
             (void) signal(SIGALRM, alarmHandler); //when timer of alarm ends calls alarmHandler->alarmTriggered=TRUE & alarmCount++
             while(connectionParameters.nRetransmissions!=0 && linkstate!=STOP_READ){
                 printf("%x|%x|%d",A_TR,SET,fd);
                 fflush(stdout);
-                debugs("transmission-----------------------------------");
+                debugs("---------------transmission--------------------");
                 if(sendSUFrame(A_TR,SET,fd)==-1)return -1;
                 frames_sent++; 
                 alarm(connectionParameters.timeout);
@@ -111,7 +109,7 @@ int llopen(LinkLayer connectionParameters){
                  connectionParameters.nRetransmissions--;    
             }
             if(linkstate!=STOP_READ)return -1;
-            debugs("Connection made - received UA");
+            debugs("Connection established -received UA");
             break;
            
         }
@@ -158,7 +156,7 @@ int llopen(LinkLayer connectionParameters){
             }
             if(sendSUFrame(A_RT,UA,fd)==-1)return -1;
             frames_sent++; 
-            debugs("UA SENT");
+            debugs("Connection established -UA SENT");
             break;
         }
         default:{
@@ -373,7 +371,7 @@ int llread(int fd,unsigned char *packet)
         }
         else if(x==0)break;
         else{
-            debugs("error llread x");
+            debugs("error llread ");
             return -1;
         }
     }

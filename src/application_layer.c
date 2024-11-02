@@ -15,15 +15,12 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
     linklayer.baudRate = baudRate;
     linklayer.timeout = timeout;
     strcpy(linklayer.serialPort,serialPort); 
-    debugs("LLOPEN-");
     int fd=llopen(linklayer);
     if (fd < 0) {
         printf("Connection error\n");
         fflush(stdout); 
         exit(-1);
     }
-    debugs("END LLOPEN");
-    debugs("ENTER SWITCH ROLE");
     switch (linklayer.role) {
         /*  Transmiter:
             Open the file to be transmitted.
@@ -48,8 +45,6 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                 debugs("\n ERROR:writing start packet\n");
                 exit(-1);
             }
-            debugs("start packet SENT");
-
             unsigned char* data=(unsigned char*)malloc(sizeof(unsigned char)* file_size);
             fread(data,sizeof(unsigned char),file_size,file);//reads from file to data file_size bytes/characters
 
@@ -59,7 +54,7 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
           
             int offset=0;
             //data distribution by packets 
-            debugs("SENDING DATAPACKETS\n");
+            debugs("SENDING DATAPACKETS:\n");
             while(bytes_left>0){ 
                 data_size=MAX_PAYLOAD_SIZE;
                 if(data_size>bytes_left)data_size=bytes_left;
@@ -93,8 +88,6 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             if(llwrite(fd, controlPacketEnd, control_packet_size) < 0) {  
                 debugs("Exit: error in end packet");
                 exit(-1);
-            }else{ 
-                debugs("End Packet sent");
             }
             free(controlPacketStart);
             free(controlPacketEnd);
@@ -108,10 +101,8 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             Reconstruct the file by writing received packets to a file.
             Close the file and the link (llclose).*/
         case LlRx: {  
-            debugs("LLRX");
             unsigned char *packet = (unsigned char *)malloc(MAX_PAYLOAD_SIZE);
             int packet_size = -1;
-            debugs("Getting packet size");
             while (packet_size < 0) {
                 packet_size = llread(fd, packet);
             }
@@ -123,15 +114,10 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
             FILE* new_file = fopen((char *) name, "wb+");//file where we will copy the packets            
             packet_size = -1; 
             //data packet loop
-            debugs("READING DATAPACKETS:");
+            debugs("READING DATAPACKETS:\n");
             while (TRUE) {
                 // Read the packet
-                while ((packet_size = llread(fd, packet)) < 0){
-                    debugs("waiting packet");
-                }
-                printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
-                printf("   -packet size:%d",packet_size);
-                fflush(stdout);
+                while ((packet_size = llread(fd, packet)) < 0);
                 if(packet_size==0)break;
                 else if(packet[0]==2){
                      unsigned char *buffer = (unsigned char *)malloc(packet_size - 4);
@@ -140,12 +126,14 @@ void applicationLayer(const char *serialPort, const char *role,const int baudRat
                         break; // Exit loop
                     }
                     memcpy(buffer,packet+4,packet_size-4);
-                    
                     fwrite(buffer, sizeof(unsigned char), packet_size - 4, new_file);
-                
+                    free(buffer);
                 }else continue;
+                printf("Received packet: c=%d, s=%d, l2=%d, l1=%d\n", packet[0], packet[1], packet[2], packet[3]);
+                printf(" -- packet size:%d\n",packet_size);
+                fflush(stdout);
             }
-            debugs("EndPacket-ALL DATA READ");
+            debugs("Transfer Complete");
             free(packet);
             fclose(new_file);
             break;
