@@ -31,3 +31,30 @@ so  receiving Ethernet frame is ARP when i dont know the mac address of an ip im
 
 
 EX2
+
+additionaly to the ex1 
+configure E1 of tuxY2 : ifconfig eth1 172.16.Y1.1/24 in Tux2 connecting to the same microtik network as the tuxY3 and tuxY4
+
+whentrying to ping tuxY3 or TuxY4 it will fail 
+
+need to open gtkterm at 11590 baudrate
+clear with /system reset-configuration
+
+now create 2 bridges 
+/interface bridge add name=bridgeY0
+/interface bridge add name=bridgeY1
+
+then remove current ports from default bridge
+(check port number connected on switch green light-this indicates ether nº)
+/interface bridge port remove [find interface =ether22] for all 3tux Y2 Y3 Y4
+then connect them to the correspondent bridges:
+/interface bridge port add bridge=bridgeY0 interface=ethernº
+
+
+when on tuxY3 - it can ping tux Y4 since they are on the same bridge
+              - it can't ping tuxY2 since they are on different bridge
+
+Connections 
+tuxS0--T3
+CONSOLE--T4
+
