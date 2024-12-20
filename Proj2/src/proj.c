@@ -128,13 +128,13 @@ int main(int argc, char *argv[]) {
         printf("Parse error. Usage: ./proj ftp://[<user>:<password>@]<host>/<url-path>\n");
         exit(-1);
     }
-
+    //url fields extracted on parse() 
     printf("Host: %s\nResource: %s\nFile: %s\nUser: %s\nPassword: %s\nIP Address: %s\n", 
         url.host, url.resource, url.file, url.user, url.password, url.ip);
 
     char answer[MAX_LENGTH];
     int socketA = openSocket(url.ip, FTP);
-    if (socketA < 0 || checkResponse(socketA, answer) != SV_AUTH) {
+    if (socketA < 0 || checkResponse(socketA, answer) != SV_AUTH) { //SV_AUTH 220
         printf("Socket to '%s' and port %d failed\n", url.ip, FTP);
         exit(-1);
     }
@@ -143,20 +143,20 @@ int main(int argc, char *argv[]) {
     sprintf(userCommand, "USER %s\n", url.user);
     sprintf(passCommand, "PASS %s\n", url.password);
 
-    write(socketA, userCommand, strlen(userCommand));
-    if (checkResponse(socketA, answer) != SV_READYPASS) {
+    write(socketA, userCommand, strlen(userCommand)); //Write user to server
+    if (checkResponse(socketA, answer) != SV_READYPASS) {//check if ready for password SV_READYPASS 331
         printf("Unknown user '%s'. Abort.\n", url.user);
         exit(-1);
     }
 
-    write(socketA, passCommand, strlen(passCommand));
-    if (checkResponse(socketA, answer) != SV_LOGINSUCCESS) {
+    write(socketA, passCommand, strlen(passCommand));//Write password to server
+    if (checkResponse(socketA, answer) != SV_LOGINSUCCESS) { //check if login successfull SV_LOGINSUCCESS 230
         printf("Authentication failed with username = '%s' and password = '%s'.\n", url.user, url.password);
         exit(-1);
     }
 
-    write(socketA, "pasv\n", 5);
-    if (checkResponse(socketA, answer) != SV_PASSIVE) {
+    write(socketA, "pasv\n", 5); //Write pasv command to server
+    if (checkResponse(socketA, answer) != SV_PASSIVE) {//Check if server is entering passive mode SV_PASSIVE 227
         printf("Passive fail\n");
         exit(-1);
     }
@@ -176,8 +176,8 @@ int main(int argc, char *argv[]) {
         // Request the file
         char fileCommand[MAX_LENGTH+8];
         sprintf(fileCommand, "RETR %s\n", url.resource);
-        write(socketA, fileCommand, strlen(fileCommand));
-        if (checkResponse(socketA, answer) != SV_READYTOTRANSFER) {
+        write(socketA, fileCommand, strlen(fileCommand));//write which resource we want with RETR 
+        if (checkResponse(socketA, answer) != SV_READYTOTRANSFER) {//check if ready to transfer 150
             printf("Unknown resource '%s' in '%s:%d'\n", url.resource, ip, port);
             exit(-1);
         }
@@ -192,21 +192,21 @@ int main(int argc, char *argv[]) {
         char buffer[MAX_LENGTH];
         int bytes;
         do {
-            bytes = read(socketB, buffer, MAX_LENGTH);
-            fwrite(buffer, 1, bytes, fd);
+            bytes = read(socketB, buffer, MAX_LENGTH); //Read from server socket to buffer
+            fwrite(buffer, 1, bytes, fd); //write buffer to file
         } while (bytes > 0);
         fclose(fd);
 
         // Check transfer completion status
         int status = checkResponse(socketA, buffer);
-        if (status != SV_TRANSFER_COMPLETE) {
+        if (status != SV_TRANSFER_COMPLETE) {//check if transfer complete on server SV....226
             printf("Transfer status error: %d\n", status);
             return -1;
         }
 
         // Close the connection
-        write(socketA, "QUIT\n", 5);
-        if (checkResponse(socketA, answer) != SV_GOODBYE) {
+        write(socketA, "QUIT\n", 5);//Write QUIT to server
+        if (checkResponse(socketA, answer) != SV_GOODBYE) { //check for server goodbye 221
             printf("SV_GOODBYE ERROR");
             return -1;
         }
